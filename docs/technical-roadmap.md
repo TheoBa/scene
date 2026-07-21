@@ -12,18 +12,22 @@ Three things gate everything else, in this order: **can we deploy it** (phase 0)
 ## Phase 0 — Infrastructure validation *(current)*
 
 **Goal:** a public HTTPS URL serving the V1 skeleton, redeployed on git push. No features.
+**Host:** personal Mac Mini (Apple Silicon) → Ubuntu VM → Coolify, exposed via Cloudflare Tunnel on `scenes.badoz.org`. Free; validates the full path. Hetzner migration deferred to pre-launch.
 
 - [ ] Push repo to GitHub
-- [ ] Hetzner CX32, Ubuntu 24.04, firewall 22/80/443
-- [ ] Domain purchased + DNS A records
-- [ ] Coolify installed, admin secured, own subdomain
+- [ ] macOS: sleep disabled, auto-restart after power failure
+- [ ] Ubuntu 24.04 arm64 VM (UTM), 4 CPU / 8 GB / 80 GB, bridged network
+- [ ] Coolify installed, admin secured behind Cloudflare Access
+- [ ] Cloudflare Tunnel → `scenes.badoz.org` + `coolify.badoz.org`, running as a systemd service
 - [ ] Postgres resource + backups configured **and restore tested**
-- [ ] Web app deployed on `scenes.<domain>` with valid cert
+- [ ] Web app deployed, valid HTTPS via Cloudflare edge
 - [ ] Worker deployed
-- [ ] Migrations run against prod DB
+- [ ] Migrations run against the DB
 - [ ] Uptime monitoring
 
-**Exit criteria:** the post-deploy checklist in `deployment-runbook.md` is fully green.
+**Exit criteria:** the phase-0 checklist in `deployment-runbook.md` is fully green.
+
+**Deferred to pre-launch (Track B):** migrate to a Hetzner VPS and a brand domain. The Mac Mini stays as the staging environment. Don't launch publicly on `badoz.org` — SEO authority and brand equity accrue to the serving domain.
 
 ---
 
