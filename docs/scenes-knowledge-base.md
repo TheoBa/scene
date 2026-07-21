@@ -3,6 +3,7 @@
 > Living document. Last updated: 2026-07-18. Owner: Théo (CTO).
 > Purpose: single source of truth for the Scenes concept, decisions, and open questions. Enhanced iteratively.
 > Canonical copy lives in the repo: `scenes_project/scenes_V1/docs/`. Keep both in sync.
+> Companion docs in the repo: `technical-roadmap.md` (phased plan), `deployment-runbook.md` (self-hosting), `frontend-feature-inventory.md` (V0 audit).
 
 ---
 

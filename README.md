@@ -5,6 +5,8 @@ Clean restart of the Scenes platform. Self-host-first: Hetzner VPS + Coolify/Dok
 ## Docs
 
 - `docs/scenes-knowledge-base.md` — project context, decisions, data-sourcing & legal strategy
+- `docs/technical-roadmap.md` — phased plan (infra → catalogue → product → monetization)
+- `docs/deployment-runbook.md` — self-hosting on Hetzner + Coolify + domain
 - `docs/frontend-feature-inventory.md` — audit of the V0 prototype
 
 ## Structure
