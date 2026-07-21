@@ -10,12 +10,13 @@
     "migrate": "drizzle-kit migrate"
   },
   "dependencies": {
-    "drizzle-orm": "^0.44.0",
+    "drizzle-orm": "^0.45.2",
+    "next": "^16.2.11",
     "pg": "^8.16.0"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.31.0",
     "@types/pg": "^8.11.0",
+    "drizzle-kit": "^0.31.10",
     "typescript": "^5"
   }
 }
