@@ -39,9 +39,63 @@ sudo pmset -a autorestart 1
 
 Also: System Settings → Energy → "Start up automatically after a power failure", disable automatic macOS updates that force reboots, and set UTM to auto-start the VM at login.
 
-## A3. Install Ubuntu + Coolify in the VM
+## A3. Create the Ubuntu VM
 
-Install Ubuntu Server 24.04 LTS (arm64), then inside the VM:
+> ⚠️ Everything from A3.4 onward runs **inside the Ubuntu guest**, not in macOS Terminal.
+> If your prompt looks like `theobadoz@Mac ~ %` you are on the host and `apt` will not exist.
+> Inside the VM the prompt looks like `theo@scenes-vm:~$`.
+
+### A3.1 Install UTM and get the ISO
+
+```bash
+brew install --cask utm          # or download from https://mac.getutm.app
+```
+
+Download **Ubuntu Server 24.04 LTS for ARM** (`...-live-server-arm64.iso`) from
+<https://ubuntu.com/download/server/arm>. It must be the **arm64** build — amd64 will not boot on Apple Silicon.
+
+### A3.2 Create the VM in UTM
+
+UTM → **Create a New Virtual Machine → Virtualize → Linux** → browse to the ISO, then:
+
+| Setting | Value |
+|---|---|
+| Memory | `8192` MB |
+| CPU cores | `4` |
+| Storage | `80` GB |
+| Name | `scenes-vm` |
+
+After creating it, open **VM Settings → Network → Network Mode: Bridged** so the VM gets its own LAN IP (the tunnel and your Mac both need to reach it).
+
+### A3.3 Install Ubuntu
+
+Start the VM and run the installer. Accept the defaults, and when you reach the software selection screen **tick "Install OpenSSH server"** — without it you can't SSH in from macOS.
+
+When the installer finishes and asks to reboot: **UTM Settings → Drives → remove the ISO** first, or it boots back into the installer.
+
+At the VM console, log in and find its IP:
+
+```bash
+ip -4 addr show | grep inet
+```
+
+Note that address as `<VM_IP>` (something like `192.168.1.42`).
+
+### A3.4 SSH in from macOS, then install Coolify
+
+From macOS Terminal:
+
+```bash
+ssh <your-vm-username>@<VM_IP>
+```
+
+Your prompt should now end in `:~$`, not `%`. Confirm you're really in Linux before continuing:
+
+```bash
+cat /etc/os-release     # should say Ubuntu 24.04
+```
+
+Now install Coolify **inside the VM**:
 
 ```bash
 sudo apt update && sudo apt upgrade -y
@@ -49,9 +103,9 @@ sudo apt install -y unattended-upgrades
 curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
 ```
 
-Coolify supports arm64, so the Apple Silicon architecture is fine. Note the VM's LAN IP (`ip a`) — call it `<VM_IP>`.
+Coolify supports arm64, so Apple Silicon is fine.
 
-Open `http://<VM_IP>:8000` from your Mac and **create the admin account immediately** (first account wins).
+Open `http://<VM_IP>:8000` in your Mac's browser and **create the admin account immediately** (first account wins).
 
 > **arm64 note.** Images built here are arm64; Hetzner is x86_64. This is a non-issue because Coolify builds from source on each host — just never push an arm64 image to a registry and expect it to run on Track B. Our base images (`node:22-alpine`, `postgres:17-alpine`) are multi-arch.
 
@@ -185,6 +239,7 @@ Later: promote this to a pre-deploy command in Coolify.
 - **Monorepo Docker context.** The Dockerfiles copy `packages/db`, so they must build from the workspace root. Pointing Coolify's build context at `apps/web` will fail.
 - **Let's Encrypt vs. Cloudflare Tunnel.** Covered above: HTTP-01 can't work through a tunnel. Use `http://` domains in Coolify on Track A.
 - **Proxy headers.** Behind Cloudflare + Traefik, ensure the app reads `X-Forwarded-Proto`/`Host` correctly so auth callbacks and canonical URLs use `https://scenes.badoz.org`, not the internal address.
+- **Running VM commands on the host.** `sudo: apt: command not found` plus `grep: /etc/os-release: No such file or directory` means you're in macOS, not the guest. Check the prompt: `%` and `@Mac` = host (zsh); `$` and `@scenes-vm` = guest. Only A1–A2 run on macOS.
 - **Mac sleep.** The single most likely cause of mystery downtime on Track A. Verify with `pmset -g`.
 - **Disk fill.** Check `docker system df` periodically; enable Coolify's cleanup schedule.
 - **arm64 vs x86_64.** Build on the host, don't ship images between tracks.
