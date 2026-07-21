@@ -1,0 +1,44 @@
+# Local dev: docker compose up -d postgres, then `npm run dev` on the host.
+# Full stack (closer to prod): docker compose --profile full up --build
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: scenes
+      POSTGRES_PASSWORD: scenes
+      POSTGRES_DB: scenes
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scenes"]
+      interval: 5s
+      retries: 10
+
+  web:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      DATABASE_URL: postgres://scenes:scenes@postgres:5432/scenes
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    environment:
+      DATABASE_URL: postgres://scenes:scenes@postgres:5432/scenes
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
