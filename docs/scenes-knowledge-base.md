@@ -115,7 +115,7 @@ Vibe-coded first iteration by CEO (mostly frontend + tiny backend from manual sc
 
 **V1 stack (decided 2026-07-18, self-host-first):**
 
-- Hosting: Hetzner VPS, deployed via self-hosted PaaS (Coolify or Dokploy — pick on first deploy).
+- Hosting: Coolify (self-hosted PaaS). **Staging now:** personal Mac Mini (Apple Silicon) → Ubuntu 24.04 arm64 VM → Coolify, exposed via Cloudflare Tunnel on `scenes.badoz.org` (€0, no port forwarding, TLS at Cloudflare edge). **Production later:** Hetzner CX32 + brand domain, before public launch.
 - Architecture: monorepo (npm workspaces) — `apps/web` (Next.js, App Router, `output: standalone`, Dockerized) + `apps/worker` (Node/TS, daily ingestion jobs) + `packages/db` (shared Drizzle schema on Postgres).
 - Database: self-hosted Postgres (Docker).
 - Auth: better-auth (in-app, sessions in Postgres).
@@ -135,7 +135,8 @@ Vibe-coded first iteration by CEO (mostly frontend + tiny backend from manual sc
 |------|----------|-----------|
 | 2026-07-18 | Restart V1 from scratch in `scenes_project/scenes_V1/` | V0 is a vibe-coded prototype; avoid Supabase/Vercel lock-in — infra choices deferred |
 | 2026-07-18 | Retire billetreduc scraping; move to open data + affiliate feeds + venue self-serve | Legal risk (sui generis DB right, parasitisme, GDPR) + affiliate feeds align data with revenue |
-| 2026-07-18 | V1 stack: Hetzner + Coolify/Dokploy, Next.js monolith + worker + shared Drizzle/Postgres, better-auth, Resend | Self-host-first; SSR/SEO critical; ingestion outside web framework; defer dedicated API until second client exists |
+| 2026-07-18 | V1 stack: Coolify, Next.js monolith + worker + shared Drizzle/Postgres, better-auth, Resend | Self-host-first; SSR/SEO critical; ingestion outside web framework; defer dedicated API until second client exists |
+| 2026-07-18 | Phase 0 runs on the personal Mac Mini via Cloudflare Tunnel on `scenes.badoz.org`; Hetzner deferred to pre-launch | Free validation of the identical Coolify path; Mac Mini remains staging afterwards. Personal domain = staging only, never the public launch domain (SEO/brand equity) |
 
 ## 14. Glossary
 
