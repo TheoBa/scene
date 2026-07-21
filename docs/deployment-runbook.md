@@ -333,12 +333,19 @@ Then copy the **internal** connection string from the resource page (`postgres:/
 
 In the **same project and environment** as the database: **+ New → Application → from GitHub repo**, Build Pack = **Dockerfile**.
 
-| Setting | Value |
+> **You don't write a Dockerfile here.** It already exists in the repo. Coolify's fields are *paths to files in the repo*, not file contents.
+
+| Field | Value |
 |---|---|
-| Base directory / build context | the workspace root containing `package.json` (`scenes_V1/`) |
-| Dockerfile | `apps/web/Dockerfile` |
+| Base Directory (build context) | `/` — must be the repo root; the Dockerfile copies `packages/db` and the root `package.json` |
+| Dockerfile Location | `/apps/web/Dockerfile` |
 | Port | `3000` |
 | Domain | Track A: `http://scenes.badoz.org` · Track B: `https://<brand-domain>` |
+
+**Prerequisites for the build to succeed:**
+
+- **`package-lock.json` must be committed.** The Dockerfile runs `npm ci`, which fails without a lockfile. Run `npm install` at the repo root, commit the lockfile, push.
+- **`outputFileTracingRoot` must be set** in `apps/web/next.config.mjs` (already done) so Next's standalone output traces the `@scenes/db` workspace package. Without it the image builds but crashes on boot with a missing-module error.
 
 Environment:
 
@@ -352,7 +359,7 @@ NODE_ENV=production
 
 ## S4. Worker
 
-Same flow, Dockerfile `apps/worker/Dockerfile`, **no domain and no port** (not a web service). Env: `DATABASE_URL` plus feed keys later.
+Same flow, Base Directory `/`, Dockerfile Location `/apps/worker/Dockerfile`, **no domain and no port** (not a web service). Env: `DATABASE_URL` plus feed keys later.
 
 ## S5. Migrations
 
