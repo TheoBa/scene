@@ -137,6 +137,7 @@ Vibe-coded first iteration by CEO (mostly frontend + tiny backend from manual sc
 | 2026-07-18 | Retire billetreduc scraping; move to open data + affiliate feeds + venue self-serve | Legal risk (sui generis DB right, parasitisme, GDPR) + affiliate feeds align data with revenue |
 | 2026-07-18 | V1 stack: Coolify, Next.js monolith + worker + shared Drizzle/Postgres, better-auth, Resend | Self-host-first; SSR/SEO critical; ingestion outside web framework; defer dedicated API until second client exists |
 | 2026-07-18 | Phase 0 runs on the personal Mac Mini via Cloudflare Tunnel on `scenes.badoz.org`; Hetzner deferred to pre-launch | Free validation of the identical Coolify path; Mac Mini remains staging afterwards. Personal domain = staging only, never the public launch domain (SEO/brand equity) |
+| 2026-07-21 | Do **not** migrate any V0/Supabase data into V1; start the database empty and let ingestion build the catalogue | V0 was a POC with no real user data; its catalogue was billetreduc-scraped (the source being retired) with no provenance and a mismatched schema. The old catalogue is kept only as an offline reference list for the Phase 1 coverage audit. Decommission Supabase as a separate cleanup. |
 
 ## 14. Glossary
 
