@@ -61,6 +61,14 @@ Core entities and how they relate:
 
 V0 implemented (Supabase): `scenes` (pieces), `salles` (venues, geocoded), `profiles` (incl. artist mode), `notebooks`/`notebook_items`/`notebook_members` (carnets), `friendships`, `invitations`, `activity_feed`, `scenes_proposees`.
 
+**Current V1 POC schema (2026-07-21).** For the POC we start lean — three logical domains in one Postgres `public` schema, columns kept minimal and added only when a feature needs them:
+
+- `venues` — `id`, `name` (unique), `address`
+- `events` — `id`, `venue_id → venues.id`, `name`, `date` (the central "show" entity, **renamed from *piece***)
+- `users` — `id`, `pseudo` (unique)
+
+Artists, ratings/comments, ticketing, geocoding (`lat`/`lng`) and provenance (`source`/`source_ref`) columns are deferred until the features that need them, and until automated ingestion returns. Data is filled manually via a versioned seed script (`npm run db:seed`) — no ingestion pipeline in the POC.
+
 ## 7. Data sourcing & legal strategy
 
 **Legal context (researched 2026-07):** daily scraping of billetreduc.fr is high-risk in France — sui generis database right (repeated systematic extraction sanctioned; Cour de cassation confirmed Oct 2025), CGU breach + parasitisme, and GDPR/CNIL exposure on personal data (KASPR fined €240k). Scraping is MVP-only; must be retired before scale. Note: billetreduc is owned by Fnac Darty — same group as France Billet / Fnac Spectacles.
@@ -138,10 +146,11 @@ Vibe-coded first iteration by CEO (mostly frontend + tiny backend from manual sc
 | 2026-07-18 | V1 stack: Coolify, Next.js monolith + worker + shared Drizzle/Postgres, better-auth, Resend | Self-host-first; SSR/SEO critical; ingestion outside web framework; defer dedicated API until second client exists |
 | 2026-07-18 | Phase 0 runs on the personal Mac Mini via Cloudflare Tunnel on `scenes.badoz.org`; Hetzner deferred to pre-launch | Free validation of the identical Coolify path; Mac Mini remains staging afterwards. Personal domain = staging only, never the public launch domain (SEO/brand equity) |
 | 2026-07-21 | Do **not** migrate any V0/Supabase data into V1; start the database empty and let ingestion build the catalogue | V0 was a POC with no real user data; its catalogue was billetreduc-scraped (the source being retired) with no provenance and a mismatched schema. The old catalogue is kept only as an offline reference list for the Phase 1 coverage audit. Decommission Supabase as a separate cleanup. |
+| 2026-07-21 | POC-first: defer the ingestion pipeline. Agree a lean 3-table schema (`venues`, `events`, `users` — logical domains in `public`), fill it via a versioned seed script, and build the core product feature first. Rename the central entity *piece* → *event*. | De-risk the product before the pipeline: hand-curated data proves the browse/detail experience in days, whereas ingestion is the hardest, most uncertain part (multi-source + normalization + open legal question) and is cheaper to build once the UI shows which fields actually matter. Provenance columns return when ingestion lands; the OpenAgenda ingester work is shelved on `feature/openagenda-ingester`. |
 
 ## 14. Glossary
 
-- **Piece** — a theatre show/production (V0 table: `scenes`).
+- **Event (formerly Piece)** — a theatre show/production; the central catalogue entity (V1 table: `events`; V0 table: `scenes`).
 - **Venue / Salle** — a theatre or performance space.
 - **Carnet** — a user notebook/list of pieces (shareable, V0 feature).
 - **Explorer tab** — the taste-based discovery surface.

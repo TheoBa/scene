@@ -7,6 +7,7 @@
     "dev:worker": "npm run dev -w apps/worker",
     "build": "npm run build -w apps/web",
     "db:generate": "npm run generate -w packages/db",
-    "db:migrate": "npm run migrate -w packages/db"
+    "db:migrate": "npm run migrate -w packages/db",
+    "db:seed": "npm run seed -w packages/db"
   }
 }

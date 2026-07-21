@@ -1,133 +1,35 @@
-import {
-  pgTable,
-  uuid,
-  text,
-  timestamp,
-  integer,
-  real,
-  boolean,
-  date,
-  primaryKey,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, date, timestamp } from "drizzle-orm/pg-core";
 
-// ---------- Catalogue (fed by the worker's daily ingestion) ----------
+// Lean POC schema — three logical domains in the public namespace: Venues,
+// Events, Users. Kept deliberately concise; columns are added when a feature
+// actually needs them (e.g. lat/lng once the map lands, provenance once
+// automated ingestion returns). Artists are deferred.
+
+// ---------- Venues ----------
 
 export const venues = pgTable("venues", {
   id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  slug: text("slug").notNull().unique(),
+  name: text("name").notNull().unique(),
   address: text("address"),
-  city: text("city").notNull().default("Paris"),
-  lat: real("lat"),
-  lng: real("lng"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const pieces = pgTable(
-  "pieces",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    title: text("title").notNull(),
-    slug: text("slug").notNull().unique(),
-    synopsis: text("synopsis"),
-    venueId: uuid("venue_id").references(() => venues.id),
-    startDate: date("start_date"),
-    endDate: date("end_date"),
-    imageUrl: text("image_url"),
-    // Provenance — which feed this record came from (dedup/entity resolution)
-    source: text("source"), // 'openagenda' | 'datatourisme' | 'francebillet' | 'ticketmaster' | 'venue' | 'manual'
-    sourceRef: text("source_ref"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
-  (t) => [uniqueIndex("pieces_source_ref_idx").on(t.source, t.sourceRef)],
-);
+// ---------- Events (a show/production; one representative date for now) ----------
 
-export const artists = pgTable("artists", {
+export const events = pgTable("events", {
   id: uuid("id").primaryKey().defaultRandom(),
+  venueId: uuid("venue_id").references(() => venues.id),
   name: text("name").notNull(),
-  slug: text("slug").notNull().unique(),
-  bio: text("bio"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  date: date("date"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const pieceArtists = pgTable(
-  "piece_artists",
-  {
-    pieceId: uuid("piece_id")
-      .notNull()
-      .references(() => pieces.id),
-    artistId: uuid("artist_id")
-      .notNull()
-      .references(() => artists.id),
-    role: text("role"), // 'comedien' | 'metteur_en_scene' | 'auteur' | ...
-  },
-  (t) => [primaryKey({ columns: [t.pieceId, t.artistId] })],
-);
+// ---------- Users ----------
+// Standalone for the POC. When better-auth lands it owns the auth identity
+// (email/sessions) and `pseudo` becomes the public handle layered on top.
 
-export const ticketingOffers = pgTable("ticketing_offers", {
+export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
-  pieceId: uuid("piece_id")
-    .notNull()
-    .references(() => pieces.id),
-  partner: text("partner").notNull(), // 'francebillet' | 'ticketmaster' | 'fever' | ...
-  url: text("url").notNull(),
-  affiliateUrl: text("affiliate_url"),
-  priceFrom: integer("price_from_cents"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
-
-// ---------- Social (better-auth owns its own user/session tables; profiles extends it) ----------
-
-export const profiles = pgTable("profiles", {
-  // matches better-auth user id
-  userId: text("user_id").primaryKey(),
-  username: text("username").notNull().unique(),
-  displayName: text("display_name"),
-  avatarUrl: text("avatar_url"),
-  isArtist: boolean("is_artist").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
-
-export const follows = pgTable(
-  "follows",
-  {
-    followerId: text("follower_id")
-      .notNull()
-      .references(() => profiles.userId),
-    followedId: text("followed_id")
-      .notNull()
-      .references(() => profiles.userId),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-  },
-  (t) => [primaryKey({ columns: [t.followerId, t.followedId] })],
-);
-
-export const ratings = pgTable(
-  "ratings",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => profiles.userId),
-    pieceId: uuid("piece_id")
-      .notNull()
-      .references(() => pieces.id),
-    rating: integer("rating").notNull(), // 1..5
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-  },
-  (t) => [uniqueIndex("ratings_user_piece_idx").on(t.userId, t.pieceId)],
-);
-
-export const comments = pgTable("comments", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => profiles.userId),
-  pieceId: uuid("piece_id")
-    .notNull()
-    .references(() => pieces.id),
-  body: text("body").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  pseudo: text("pseudo").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
