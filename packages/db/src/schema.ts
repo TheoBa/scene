@@ -1,9 +1,9 @@
-import { pgTable, uuid, text, date, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
 
-// Lean POC schema — three logical domains in the public namespace: Venues,
-// Events, Users. Kept deliberately concise; columns are added when a feature
-// actually needs them (e.g. lat/lng once the map lands, provenance once
-// automated ingestion returns). Artists are deferred.
+// Lean POC schema — logical domains in the public namespace: Venues, Events,
+// Performances, Users. Kept concise; columns are added when a feature needs
+// them (e.g. lat/lng once the map lands, provenance once ingestion returns).
+// Artists are deferred.
 
 // ---------- Venues ----------
 
@@ -14,13 +14,28 @@ export const venues = pgTable("venues", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-// ---------- Events (a show/production; one representative date for now) ----------
+// ---------- Events (a show/production) ----------
+// Deliberately holds no venue or date — those live on `performances`, so a show
+// that tours several venues or plays many nights is modelled correctly.
 
 export const events = pgTable("events", {
   id: uuid("id").primaryKey().defaultRandom(),
-  venueId: uuid("venue_id").references(() => venues.id),
   name: text("name").notNull(),
-  date: date("date"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ---------- Performances (one row per individual showing) ----------
+
+export const performances = pgTable("performances", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  eventId: uuid("event_id")
+    .notNull()
+    .references(() => events.id),
+  venueId: uuid("venue_id")
+    .notNull()
+    .references(() => venues.id),
+  // Full timestamp so it carries the showtime (evening / matinée), not just a day.
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
