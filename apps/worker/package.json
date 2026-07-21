@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "ingest": "tsx src/index.ts --once"
+    "ingest": "tsx src/index.ts --once",
+    "audit:coverage": "tsx src/audit/coverage.ts"
   },
   "dependencies": {
     "@scenes/db": "*",
