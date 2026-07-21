@@ -144,12 +144,24 @@ Test it properly by rebooting the Mac and confirming `limactl list` shows the VM
 Now install Coolify **inside the VM**:
 
 ```bash
+cd ~                              # not the mounted /Users/... macOS path
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y unattended-upgrades
-curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
+curl -fsSL https://cdn.coollabs.io/coolify/install.sh | sudo bash
 ```
 
-Coolify supports arm64, so Apple Silicon is fine.
+> **`sudo bash`, not `bash`.** The installer needs root — it installs Docker first. On a Hetzner box you're already root and plain `bash` works; in Lima you're a normal user, and without `sudo` the script exits early, leaving you with `docker: command not found`.
+
+> **Work from `~`, not the mounted macOS directory.** Lima mounts your Mac home into the guest. Running installs there is slow (virtiofs) and can hit permission oddities. `cd ~` puts you on the guest's own disk.
+
+Coolify supports arm64, so Apple Silicon is fine. First run takes several minutes while it installs Docker and pulls images.
+
+Verify before moving on:
+
+```bash
+sudo docker ps                    # several coolify containers
+curl -I http://localhost:8000     # should return HTTP headers
+```
 
 **Reaching the Coolify UI without a GUI on the Mac.** Lima forwards the guest's port 8000 to `127.0.0.1:8000` on the Mac. From your laptop, tunnel it over your existing SSH connection:
 
@@ -180,7 +192,7 @@ curl -I http://localhost:8000     # does Coolify answer locally?
 sudo ss -tlnp | grep 8000         # what is bound, and on which address
 ```
 
-**Case 1 — no/few containers.** The install didn't finish. Coolify pulls a lot of images; give it several minutes, then re-run the install script and read the output for errors.
+**Case 1 — `docker: command not found`, or no/few containers.** The install didn't finish. Most common cause: the script was run without `sudo`, so it exited before installing Docker. Re-run `curl -fsSL https://cdn.coollabs.io/coolify/install.sh | sudo bash` from `~` and read the output. If Docker *is* installed but containers are still starting, just wait — the first image pull takes several minutes.
 
 **Case 2 — Coolify answers in the guest but the Mac refuses.** Lima port forwarding. Lima only auto-forwards ports the guest binds on `0.0.0.0`; anything bound to the guest's loopback stays invisible. Declare it explicitly:
 
