@@ -316,11 +316,22 @@ Coolify → **Sources → GitHub App** → install on the repo. Enables pull acc
 
 ## S2. Postgres
 
-**+ New → Database → PostgreSQL 17**. Keep it **internal only** (no public port). Enable **scheduled backups**: daily, ~7-day retention, off-box destination. Note the internal connection string — that's your `DATABASE_URL`.
+> **Coolify's structure:** resources live inside **Project → Environment → Resource**. There is no "add database" button at the top level — create the project first. All three resources (Postgres, web, worker) must go in the **same project and environment**, or the internal hostnames won't resolve between them.
+
+1. Sidebar → **Projects** → **+ Add**. Name it `scenes`. Coolify creates a default **production** environment.
+2. Open the project → **production** environment → **+ New** / **Add Resource**.
+3. Category **Databases** → **PostgreSQL** (version **17** if offered).
+4. Target server: the one Coolify runs on, usually labelled `localhost`.
+5. Credentials are generated for you. Leave **"Make it publicly available"** / public port **off** — the app connects over the internal Docker network.
+6. Click **Deploy** / **Start**. Creating the resource does *not* start the container — this step is easy to miss.
+
+Then copy the **internal** connection string from the resource page (`postgres://postgres:<pw>@<service-name>:5432/postgres`) — that's your `DATABASE_URL`.
+
+**Backups:** on the database resource → **Backups** tab → add a daily scheduled backup, ~7-day retention. Point it at S3-compatible storage rather than local disk when you can; a backup on the same disk as the database protects against very little. Whatever you configure, **restore it once** before trusting it.
 
 ## S3. Web app
 
-**+ New → Application → from GitHub repo**, Build Pack = **Dockerfile**.
+In the **same project and environment** as the database: **+ New → Application → from GitHub repo**, Build Pack = **Dockerfile**.
 
 | Setting | Value |
 |---|---|
