@@ -24,20 +24,39 @@
 
 Coolify requires a Linux host with native Docker; it does not run on macOS. Docker Desktop on a Mac is itself a Linux VM, so running Ubuntu explicitly costs little and keeps this setup identical to the eventual Hetzner one.
 
-**Recommended:** [UTM](https://mac.getutm.app) (free, Apple Virtualization framework) or VMware Fusion (free for personal use). OrbStack is excellent for plain Docker but nesting Coolify inside it is awkward.
+**Tool: [Lima](https://lima-vm.io) (`limactl`).** Entirely CLI-driven — no GUI, no ISO, no installer wizard — and it uses Apple's Virtualization framework natively on Apple Silicon. This whole runbook is executable over SSH.
 
-VM specs: **4 CPU / 8 GB RAM / 80 GB disk**, Ubuntu Server 24.04 LTS **arm64**, network mode **Bridged** (gives the VM its own LAN IP).
+> Rejected: UTM and VMware Fusion (GUI-first VM creation). OrbStack is great for plain Docker but nesting Coolify inside it isn't supported.
 
-## A2. Prepare macOS to act as a server
+**Networking note:** Lima uses user-mode networking and auto-forwards the guest's listening ports to `127.0.0.1` on the Mac. No bridged interface, no router config, no LAN IP needed — and since `cloudflared` runs *inside* the VM and dials outbound, nothing needs inbound access at all.
+
+## A2. Prepare macOS to act as a server (all CLI)
 
 ```bash
-# Never sleep (a sleeping host = a dead site)
+# Never sleep — a sleeping host is a dead site
 sudo pmset -a sleep 0 disablesleep 1 displaysleep 15
-# Restart automatically after a power cut
+
+# Come back up automatically after a power cut
 sudo pmset -a autorestart 1
+sudo systemsetup -setrestartpowerfailure on
+
+# Verify
+pmset -g | grep -E 'sleep|autorestart'
 ```
 
-Also: System Settings → Energy → "Start up automatically after a power failure", disable automatic macOS updates that force reboots, and set UTM to auto-start the VM at login.
+**Check FileVault** — this is the classic headless-Mac trap. With FileVault on, the Mac will *not* finish booting unattended after a power loss; it waits at the unlock screen and your site stays down.
+
+```bash
+fdesetup status
+```
+
+If it says enabled, either disable it (`sudo fdesetup disable`) or accept that unattended reboots need manual intervention. For a staging box holding no real user data, disabling is reasonable.
+
+Finally, stop macOS from rebooting itself for updates:
+
+```bash
+sudo softwareupdate --schedule off
+```
 
 ## A3. Create the Ubuntu VM
 
@@ -45,55 +64,82 @@ Also: System Settings → Energy → "Start up automatically after a power failu
 > If your prompt looks like `theobadoz@Mac ~ %` you are on the host and `apt` will not exist.
 > Inside the VM the prompt looks like `theo@scenes-vm:~$`.
 
-### A3.1 Install UTM and get the ISO
+### A3.1 Install Lima and create the VM
+
+On the Mac (over SSH is fine):
 
 ```bash
-brew install --cask utm          # or download from https://mac.getutm.app
+brew install lima
+
+limactl create --name=scenes-vm \
+  --cpus=4 --memory=8 --disk=80 \
+  template://ubuntu-24.04
+
+limactl start scenes-vm
 ```
 
-Download **Ubuntu Server 24.04 LTS for ARM** (`...-live-server-arm64.iso`) from
-<https://ubuntu.com/download/server/arm>. It must be the **arm64** build — amd64 will not boot on Apple Silicon.
+Lima downloads an Ubuntu 24.04 arm64 cloud image and boots it headless in under a minute. No ISO, no installer, SSH already configured.
 
-### A3.2 Create the VM in UTM
+> Older Lima versions don't have `limactl create`; use a single command instead:
+> `limactl start --name=scenes-vm --cpus=4 --memory=8 --disk=80 template://ubuntu-24.04`
 
-UTM → **Create a New Virtual Machine → Virtualize → Linux** → browse to the ISO, then:
-
-| Setting | Value |
-|---|---|
-| Memory | `8192` MB |
-| CPU cores | `4` |
-| Storage | `80` GB |
-| Name | `scenes-vm` |
-
-After creating it, open **VM Settings → Network → Network Mode: Bridged** so the VM gets its own LAN IP (the tunnel and your Mac both need to reach it).
-
-### A3.3 Install Ubuntu
-
-Start the VM and run the installer. Accept the defaults, and when you reach the software selection screen **tick "Install OpenSSH server"** — without it you can't SSH in from macOS.
-
-When the installer finishes and asks to reboot: **UTM Settings → Drives → remove the ISO** first, or it boots back into the installer.
-
-At the VM console, log in and find its IP:
+Check it's running:
 
 ```bash
-ip -4 addr show | grep inet
+limactl list
 ```
 
-Note that address as `<VM_IP>` (something like `192.168.1.42`).
-
-### A3.4 SSH in from macOS, then install Coolify
-
-From macOS Terminal:
+### A3.2 Enter the VM
 
 ```bash
-ssh <your-vm-username>@<VM_IP>
+limactl shell scenes-vm
 ```
 
-Your prompt should now end in `:~$`, not `%`. Confirm you're really in Linux before continuing:
+Confirm you're actually in Linux before continuing:
 
 ```bash
 cat /etc/os-release     # should say Ubuntu 24.04
 ```
+
+> `limactl shell` drops you straight in. If you prefer plain SSH, `limactl show-ssh scenes-vm` prints the exact command and port.
+
+### A3.3 Auto-start the VM at boot
+
+Lima won't restart the VM after a reboot on its own. Create a LaunchDaemon (runs at boot, before any login — important for a headless machine). On the **Mac**:
+
+```bash
+sudo tee /Library/LaunchDaemons/io.lima.scenes-vm.plist >/dev/null <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>io.lima.scenes-vm</string>
+  <key>UserName</key><string>REPLACE_WITH_YOUR_MAC_USERNAME</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><false/>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/limactl</string>
+    <string>start</string>
+    <string>scenes-vm</string>
+  </array>
+  <key>StandardOutPath</key><string>/tmp/lima-scenes-vm.log</string>
+  <key>StandardErrorPath</key><string>/tmp/lima-scenes-vm.err</string>
+</dict>
+</plist>
+EOF
+
+# set your username, then load it
+sudo sed -i '' "s/REPLACE_WITH_YOUR_MAC_USERNAME/$(whoami)/" /Library/LaunchDaemons/io.lima.scenes-vm.plist
+sudo launchctl load /Library/LaunchDaemons/io.lima.scenes-vm.plist
+```
+
+Test it properly by rebooting the Mac and confirming `limactl list` shows the VM running without you touching anything.
+
+### A3.4 Install Coolify inside the VM
 
 Now install Coolify **inside the VM**:
 
@@ -105,7 +151,13 @@ curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
 
 Coolify supports arm64, so Apple Silicon is fine.
 
-Open `http://<VM_IP>:8000` in your Mac's browser and **create the admin account immediately** (first account wins).
+**Reaching the Coolify UI without a GUI on the Mac.** Lima forwards the guest's port 8000 to `127.0.0.1:8000` on the Mac. From your laptop, tunnel it over your existing SSH connection:
+
+```bash
+ssh -L 8000:127.0.0.1:8000 <you>@<mac-mini>
+```
+
+Then open `http://localhost:8000` in your laptop's browser and **create the admin account immediately** (first account wins). After A4, Coolify is also reachable at `https://coolify.badoz.org`.
 
 > **arm64 note.** Images built here are arm64; Hetzner is x86_64. This is a non-issue because Coolify builds from source on each host — just never push an arm64 image to a registry and expect it to run on Track B. Our base images (`node:22-alpine`, `postgres:17-alpine`) are multi-arch.
 
@@ -118,9 +170,11 @@ Install `cloudflared` **inside the VM** (so it can reach services on localhost):
 curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb -o cloudflared.deb
 sudo dpkg -i cloudflared.deb
 
-cloudflared tunnel login          # opens a browser; authorize badoz.org
+cloudflared tunnel login          # prints a URL — open it on your laptop, authorize badoz.org
 cloudflared tunnel create scenes  # note the tunnel UUID
 ```
+
+> Headless note: `cloudflared tunnel login` can't open a browser on the VM. It prints a URL to the terminal — copy it to your laptop's browser, authorize `badoz.org`, and the cert lands back on the VM automatically.
 
 Create `/etc/cloudflared/config.yml`:
 
@@ -230,7 +284,8 @@ Later: promote this to a pre-deploy command in Coolify.
 - [ ] Postgres not reachable from outside the host
 - [ ] Daily DB backups configured **and a restore tested once**
 - [ ] Coolify admin not publicly open (Cloudflare Access or IP restriction), strong password, 2FA
-- [ ] Mac Mini: sleep disabled, auto-restart after power failure, VM auto-starts
+- [ ] Mac Mini: sleep disabled, auto-restart after power failure, FileVault checked
+- [ ] Lima VM auto-starts after a Mac reboot (LaunchDaemon tested with a real reboot)
 - [ ] `cloudflared` running as a systemd service and surviving a VM reboot
 - [ ] Uptime monitoring on the public URL (UptimeRobot / BetterStack free tier)
 
@@ -239,7 +294,8 @@ Later: promote this to a pre-deploy command in Coolify.
 - **Monorepo Docker context.** The Dockerfiles copy `packages/db`, so they must build from the workspace root. Pointing Coolify's build context at `apps/web` will fail.
 - **Let's Encrypt vs. Cloudflare Tunnel.** Covered above: HTTP-01 can't work through a tunnel. Use `http://` domains in Coolify on Track A.
 - **Proxy headers.** Behind Cloudflare + Traefik, ensure the app reads `X-Forwarded-Proto`/`Host` correctly so auth callbacks and canonical URLs use `https://scenes.badoz.org`, not the internal address.
-- **Running VM commands on the host.** `sudo: apt: command not found` plus `grep: /etc/os-release: No such file or directory` means you're in macOS, not the guest. Check the prompt: `%` and `@Mac` = host (zsh); `$` and `@scenes-vm` = guest. Only A1–A2 run on macOS.
+- **Running VM commands on the host.** `sudo: apt: command not found` plus `grep: /etc/os-release: No such file or directory` means you're in macOS, not the guest. Check the prompt: `%` and `@Mac` = host (zsh); `$` and `@lima-scenes-vm` = guest. Only A1–A2 and A3.1/A3.3 run on macOS; `limactl shell scenes-vm` gets you into the guest.
+- **FileVault blocks unattended reboots.** The most likely reason a headless Mac never comes back after a power cut. Check `fdesetup status`.
 - **Mac sleep.** The single most likely cause of mystery downtime on Track A. Verify with `pmset -g`.
 - **Disk fill.** Check `docker system df` periodically; enable Coolify's cleanup schedule.
 - **arm64 vs x86_64.** Build on the host, don't ship images between tracks.

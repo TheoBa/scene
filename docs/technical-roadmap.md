@@ -16,7 +16,7 @@ Three things gate everything else, in this order: **can we deploy it** (phase 0)
 
 - [ ] Push repo to GitHub
 - [ ] macOS: sleep disabled, auto-restart after power failure
-- [ ] Ubuntu 24.04 arm64 VM (UTM), 4 CPU / 8 GB / 80 GB, bridged network
+- [ ] Ubuntu 24.04 arm64 VM via Lima (CLI-only), 4 CPU / 8 GB / 80 GB, auto-start LaunchDaemon
 - [ ] Coolify installed, admin secured behind Cloudflare Access
 - [ ] Cloudflare Tunnel → `scenes.badoz.org` + `coolify.badoz.org`, running as a systemd service
 - [ ] Postgres resource + backups configured **and restore tested**
