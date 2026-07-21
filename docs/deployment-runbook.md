@@ -235,11 +235,25 @@ cloudflared tunnel create scenes  # note the tunnel UUID
 
 > Headless note: `cloudflared tunnel login` can't open a browser on the VM. It prints a URL to the terminal — copy it to your laptop's browser, authorize `badoz.org`, and the cert lands back on the VM automatically.
 
-Create `/etc/cloudflared/config.yml`:
+Route the DNS records:
 
-```yaml
-tunnel: <TUNNEL_UUID>
-credentials-file: /root/.cloudflared/<TUNNEL_UUID>.json
+```bash
+cloudflared tunnel route dns scenes scenes.badoz.org
+cloudflared tunnel route dns scenes coolify.badoz.org
+```
+
+Now write the config **where root can find it**. `cloudflared tunnel login` stores credentials under *your* home (`~/.cloudflared/`), but the service runs as root and only searches `/root/.cloudflared` and `/etc/cloudflared` — so copy the credentials into `/etc/cloudflared` and reference them there:
+
+```bash
+TUNNEL_ID=<TUNNEL_UUID>            # printed by `cloudflared tunnel create`
+
+ls ~/.cloudflared/                 # confirm ${TUNNEL_ID}.json exists
+sudo mkdir -p /etc/cloudflared
+sudo cp ~/.cloudflared/${TUNNEL_ID}.json /etc/cloudflared/
+
+sudo tee /etc/cloudflared/config.yml >/dev/null <<EOF
+tunnel: ${TUNNEL_ID}
+credentials-file: /etc/cloudflared/${TUNNEL_ID}.json
 
 ingress:
   - hostname: scenes.badoz.org
@@ -247,18 +261,24 @@ ingress:
   - hostname: coolify.badoz.org
     service: http://localhost:8000    # Coolify admin UI
   - service: http_status:404
+EOF
 ```
 
-Route DNS and run it as a service:
+> **Why this order matters.** `cloudflared service install` reads the config at install time. Run it before the config exists and it fails with
+> `Cannot determine default configuration path` followed by `Unit file cloudflared.service does not exist`.
+
+Install and start the service:
 
 ```bash
-cloudflared tunnel route dns scenes scenes.badoz.org
-cloudflared tunnel route dns scenes coolify.badoz.org
 sudo cloudflared service install
 sudo systemctl enable --now cloudflared
+sudo systemctl status cloudflared --no-pager
+journalctl -u cloudflared -f          # watch it connect
 ```
 
 Cloudflare creates the CNAME records automatically. In the Cloudflare dashboard set **SSL/TLS mode → Full**.
+
+Verify from your laptop: `https://coolify.badoz.org` should load the Coolify UI — this replaces the SSH port-forward permanently. `https://scenes.badoz.org` will return a Traefik **404 until the web app is deployed with that domain attached** (section S3); that's expected, not a fault.
 
 > **Critical gotcha:** with a tunnel there is no inbound port 80, so Let's Encrypt's HTTP-01 challenge **will fail**. In Coolify, set each app's domain as `http://scenes.badoz.org` (not `https://`) and leave automatic HTTPS **off** — Cloudflare provides the public certificate. The tunnel itself is encrypted, so nothing is exposed in the clear.
 
@@ -355,6 +375,7 @@ Later: promote this to a pre-deploy command in Coolify.
 - **Proxy headers.** Behind Cloudflare + Traefik, ensure the app reads `X-Forwarded-Proto`/`Host` correctly so auth callbacks and canonical URLs use `https://scenes.badoz.org`, not the internal address.
 - **Running VM commands on the host.** `sudo: apt: command not found` plus `grep: /etc/os-release: No such file or directory` means you're in macOS, not the guest. Check the prompt: `%` and `@Mac` = host (zsh); `$` and `@lima-scenes-vm` = guest. Only A1–A2 and A3.1/A3.3 run on macOS; `limactl shell scenes-vm` gets you into the guest.
 - **FileVault blocks unattended reboots.** The most likely reason a headless Mac never comes back after a power cut. Check `fdesetup status`.
+- **`cloudflared service install` can't find the config.** `Cannot determine default configuration path` → `Unit file cloudflared.service does not exist`. The config must exist at `/etc/cloudflared/config.yml` *before* installing the service, and the credentials JSON must be somewhere root can read (`/etc/cloudflared/`, not your user's `~/.cloudflared/`).
 - **Mac sleep.** The single most likely cause of mystery downtime on Track A. Verify with `pmset -g`.
 - **Disk fill.** Check `docker system df` periodically; enable Coolify's cleanup schedule.
 - **arm64 vs x86_64.** Build on the host, don't ship images between tracks.
