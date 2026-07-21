@@ -54,6 +54,26 @@ docker compose --profile full up --build
 
 Deploys happen by pushing to `main`; Coolify rebuilds from the Dockerfiles. In Coolify, apps use `http://` domains — Cloudflare terminates TLS, and Let's Encrypt cannot work through the tunnel.
 
+## Git workflow
+
+- **`main`** — release branch. Prod always serves from `main`. Only `dev` merges into it — a `dev` → `main` merge **is** a release.
+- **`dev`** — long-lived integration branch. All day-to-day work lands here.
+- **`feature/xxx`** — short-lived, one feature per branch. Branch from `dev`, PR back to `dev`.
+
+Commit message format: `type(scope): description`
+Common types: `feat`, `fix`, `chore`, `docs`, `infra`, `refactor`.
+Examples: `feat(tick): implement daily revenue`, `fix(server): correct static file path`.
+
+Known issue: the macOS FUSE mount used by the Linux sandbox blocks `unlink()`, so git emits `unable to unlink` warnings. These are harmless — the post-commit hook at `.git/hooks/post-commit` clears stale lock files using `mv` instead of `rm`.
+
+**Claude is authorised to:**
+- `git push origin <feature-branch>` — push feature branches to remote.
+- `gh pr create` — open PRs (feature → dev).
+- `gh pr merge` — merge PRs once created (squash merge preferred).
+
+Never push directly to `main` or `dev` unless being told explicitely.
+Releases (`dev` → `main`) are done by Théo. 
+
 ---
 
 # Working with Théo
