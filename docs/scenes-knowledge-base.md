@@ -61,6 +61,15 @@ Core entities and how they relate:
 
 V0 implemented (Supabase): `scenes` (pieces), `salles` (venues, geocoded), `profiles` (incl. artist mode), `notebooks`/`notebook_items`/`notebook_members` (carnets), `friendships`, `invitations`, `activity_feed`, `scenes_proposees`.
 
+**Current V1 POC schema (2026-07-21).** For the POC we start lean — three logical domains in one Postgres `public` schema, columns kept minimal and added only when a feature needs them:
+
+- `venues` — `id`, `name` (unique), `address`
+- `events` — `id`, `name` (the central "show"/production entity, **renamed from *piece***; holds no venue or date)
+- `performances` — `id`, `event_id → events.id`, `venue_id → venues.id`, `starts_at` (one row per individual showing, so a run of many nights — or a show touring several venues — is modelled correctly; `starts_at` is a full timestamp and carries the showtime)
+- `users` — `id`, `pseudo` (unique)
+
+Artists, ratings/comments, ticketing, geocoding (`lat`/`lng`) and provenance (`source`/`source_ref`) columns are deferred until the features that need them, and until automated ingestion returns. Data is filled manually via a versioned seed script (`npm run db:seed`) — no ingestion pipeline in the POC.
+
 ## 7. Data sourcing & legal strategy
 
 **Legal context (researched 2026-07):** daily scraping of billetreduc.fr is high-risk in France — sui generis database right (repeated systematic extraction sanctioned; Cour de cassation confirmed Oct 2025), CGU breach + parasitisme, and GDPR/CNIL exposure on personal data (KASPR fined €240k). Scraping is MVP-only; must be retired before scale. Note: billetreduc is owned by Fnac Darty — same group as France Billet / Fnac Spectacles.
@@ -138,10 +147,12 @@ Vibe-coded first iteration by CEO (mostly frontend + tiny backend from manual sc
 | 2026-07-18 | V1 stack: Coolify, Next.js monolith + worker + shared Drizzle/Postgres, better-auth, Resend | Self-host-first; SSR/SEO critical; ingestion outside web framework; defer dedicated API until second client exists |
 | 2026-07-18 | Phase 0 runs on the personal Mac Mini via Cloudflare Tunnel on `scenes.badoz.org`; Hetzner deferred to pre-launch | Free validation of the identical Coolify path; Mac Mini remains staging afterwards. Personal domain = staging only, never the public launch domain (SEO/brand equity) |
 | 2026-07-21 | Do **not** migrate any V0/Supabase data into V1; start the database empty and let ingestion build the catalogue | V0 was a POC with no real user data; its catalogue was billetreduc-scraped (the source being retired) with no provenance and a mismatched schema. The old catalogue is kept only as an offline reference list for the Phase 1 coverage audit. Decommission Supabase as a separate cleanup. |
+| 2026-07-21 | POC-first: defer the ingestion pipeline. Agree a lean schema (`venues`, `events`, `performances`, `users` — logical domains in `public`), fill it via a versioned seed script, and build the core product feature first. Rename the central entity *piece* → *event*, and model each showing as a `performances` row (event × venue × datetime) rather than a single date on the event. | De-risk the product before the pipeline: hand-curated data proves the browse/detail experience in days, whereas ingestion is the hardest, most uncertain part (multi-source + normalization + open legal question) and is cheaper to build once the UI shows which fields actually matter. Provenance columns return when ingestion lands; the OpenAgenda ingester work is shelved on `feature/openagenda-ingester`. |
 
 ## 14. Glossary
 
-- **Piece** — a theatre show/production (V0 table: `scenes`).
+- **Event (formerly Piece)** — a theatre show/production; the central catalogue entity (V1 table: `events`; V0 table: `scenes`). Its venue(s) and dates live in `performances`.
+- **Performance** — a single dated showing of an event at a venue (V1 table: `performances`; `event_id` + `venue_id` + `starts_at`).
 - **Venue / Salle** — a theatre or performance space.
 - **Carnet** — a user notebook/list of pieces (shareable, V0 feature).
 - **Explorer tab** — the taste-based discovery surface.
