@@ -161,6 +161,53 @@ Then open `http://localhost:8000` in your laptop's browser and **create the admi
 
 > **arm64 note.** Images built here are arm64; Hetzner is x86_64. This is a non-issue because Coolify builds from source on each host — just never push an arm64 image to a registry and expect it to run on Track B. Our base images (`node:22-alpine`, `postgres:17-alpine`) are multi-arch.
 
+#### Troubleshooting: `channel N: open failed: connect failed: Connection refused`
+
+That message on the Mac Mini's terminal means the SSH tunnel is healthy but **nothing is listening on the Mac's `127.0.0.1:8000`**. Diagnose top-down.
+
+On the Mac:
+
+```bash
+limactl list                      # STATUS must be Running
+curl -I http://127.0.0.1:8000     # refused → not forwarded to the host
+```
+
+Inside the guest (`limactl shell scenes-vm`):
+
+```bash
+sudo docker ps                    # expect several coolify containers
+curl -I http://localhost:8000     # does Coolify answer locally?
+sudo ss -tlnp | grep 8000         # what is bound, and on which address
+```
+
+**Case 1 — no/few containers.** The install didn't finish. Coolify pulls a lot of images; give it several minutes, then re-run the install script and read the output for errors.
+
+**Case 2 — Coolify answers in the guest but the Mac refuses.** Lima port forwarding. Lima only auto-forwards ports the guest binds on `0.0.0.0`; anything bound to the guest's loopback stays invisible. Declare it explicitly:
+
+```bash
+limactl stop scenes-vm
+limactl edit scenes-vm
+```
+
+```yaml
+portForwards:
+  - guestPort: 8000
+    hostIP: "127.0.0.1"
+    hostPort: 8000
+```
+
+```bash
+limactl start scenes-vm
+```
+
+**Case 3 — bypass host forwarding entirely.** Tunnel from inside the guest by jumping through the Mac. Get the Lima SSH port with `limactl show-ssh scenes-vm`, then from your laptop:
+
+```bash
+ssh -J <you>@<mac-mini> -p <LIMA_PORT> <lima-user>@127.0.0.1 -L 8000:localhost:8000
+```
+
+Once A4 is done this is all moot — `https://coolify.badoz.org` works over the tunnel and no SSH forwarding is needed.
+
 ## A4. Cloudflare Tunnel
 
 Install `cloudflared` **inside the VM** (so it can reach services on localhost):
