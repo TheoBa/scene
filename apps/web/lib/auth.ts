@@ -1,11 +1,12 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { createDb, user, session, account, verification } from "@scenes/db";
+import { user, session, account, verification } from "@scenes/db";
+import { getDb } from "./db";
 
 // Server-side auth instance. Owns email/password and (when configured) Google.
 // Needs DATABASE_URL + BETTER_AUTH_SECRET at runtime; BETTER_AUTH_URL is the
 // canonical origin (http://localhost:3000 in dev, https://scenes.badoz.org in staging).
-const db = createDb();
+const db = getDb();
 
 const google =
   process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET

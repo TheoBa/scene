@@ -2,7 +2,8 @@
 
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { createDb, profiles, referenceLikes } from "@scenes/db";
+import { profiles, referenceLikes } from "@scenes/db";
+import { getDb } from "@/lib/db";
 
 export interface OnboardingInput {
   pseudo: string;
@@ -26,7 +27,7 @@ export async function completeOnboarding(
   const pseudo = input.pseudo.trim();
   if (pseudo.length < 2) return { ok: false, error: "Pseudo trop court." };
 
-  const db = createDb();
+  const db = getDb();
   const userId = session.user.id;
 
   try {
