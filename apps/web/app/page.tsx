@@ -1,7 +1,20 @@
 export default function Home() {
   return (
-    <main className="flex min-h-screen items-center justify-center">
-      <h1 className="text-3xl font-semibold">Scenes — V1</h1>
+    <main className="flex min-h-screen flex-col items-center justify-center gap-8 px-6 text-center">
+      <div>
+        <h1 className="font-display text-4xl font-extrabold tracking-tight">
+          Scenes
+        </h1>
+        <p className="mt-3 text-black/60">
+          Le théâtre à Paris — découvrez, notez, partagez.
+        </p>
+      </div>
+      <a
+        href="/onboarding"
+        className="rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+      >
+        Commencer
+      </a>
     </main>
   );
 }

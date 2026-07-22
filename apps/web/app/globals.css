@@ -1,1 +1,18 @@
 @import "tailwindcss";
+
+:root {
+  --background: #faf9f7;
+  --foreground: #1b1720;
+  --accent: #6d28d9;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Display font (Syne) for the wordmark and headings. */
+.font-display {
+  font-family: var(--font-syne), ui-sans-serif, system-ui, sans-serif;
+}
