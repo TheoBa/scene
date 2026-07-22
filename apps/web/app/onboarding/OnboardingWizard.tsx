@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { REFERENCE_PIECES } from "../../lib/reference-pieces";
+import { completeOnboarding } from "./actions";
 
 // --- Placeholder content. These are proposals to react to, not final. Change
 // freely once you've clicked through the flow. ---
@@ -35,11 +37,14 @@ function toggle<T>(list: T[], value: T): T[] {
     : [...list, value];
 }
 
-export function OnboardingWizard() {
+export function OnboardingWizard({ defaultPseudo = "" }: { defaultPseudo?: string }) {
+  const router = useRouter();
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [pseudo, setPseudo] = useState("");
+  const [pseudo, setPseudo] = useState(defaultPseudo);
   const [genres, setGenres] = useState<string[]>([]);
   const [frequency, setFrequency] = useState<string | null>(null);
   const [likedShows, setLikedShows] = useState<string[]>([]);
@@ -47,12 +52,21 @@ export function OnboardingWizard() {
   const canAdvance =
     step === 0 ? pseudo.trim().length >= 2 : step === 1 ? genres.length > 0 : true;
 
-  function next() {
-    if (step < TOTAL_STEPS - 1) setStep(step + 1);
-    else {
-      // No persistence yet — the stub flow just logs what it captured.
-      console.log("[onboarding] captured", { pseudo, genres, frequency, likedShows });
+  async function next() {
+    if (step < TOTAL_STEPS - 1) {
+      setStep(step + 1);
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    const result = await completeOnboarding({ pseudo, genres, frequency, likedShows });
+    setSaving(false);
+    if (result.ok) {
       setDone(true);
+      router.refresh(); // profile now onboarded — refresh server state
+    } else {
+      setError(result.error);
+      if (result.error.includes("pseudo")) setStep(0); // let them fix it
     }
   }
 
@@ -150,11 +164,17 @@ export function OnboardingWizard() {
         </div>
       </div>
 
+      {error && (
+        <p className="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 ring-1 ring-red-200">
+          {error}
+        </p>
+      )}
+
       <div className="mt-6 flex items-center justify-between">
         <button
           type="button"
           onClick={() => setStep(step - 1)}
-          disabled={step === 0}
+          disabled={step === 0 || saving}
           className="rounded-lg px-4 py-2 text-sm font-medium text-black/60 enabled:hover:text-black disabled:opacity-0"
         >
           ← Retour
@@ -162,10 +182,14 @@ export function OnboardingWizard() {
         <button
           type="button"
           onClick={next}
-          disabled={!canAdvance}
+          disabled={!canAdvance || saving}
           className="rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white transition enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {step < TOTAL_STEPS - 1 ? "Continuer" : "Terminer"}
+          {step < TOTAL_STEPS - 1
+            ? "Continuer"
+            : saving
+              ? "Enregistrement…"
+              : "Terminer"}
         </button>
       </div>
     </div>
@@ -263,8 +287,7 @@ function Summary({
         Bienvenue, {pseudo || "toi"} 👋
       </h2>
       <p className="mt-2 text-black/60">
-        Voilà ce qu&apos;on a retenu (rien n&apos;est encore enregistré — c&apos;est un
-        squelette).
+        C&apos;est enregistré. Voilà ce qu&apos;on a retenu de tes goûts.
       </p>
       <dl className="mt-6 space-y-3 text-sm">
         <Row label="Genres" value={genres.length ? genres.join(", ") : "—"} />

@@ -9,12 +9,20 @@ export default function Home() {
           Le théâtre à Paris — découvrez, notez, partagez.
         </p>
       </div>
-      <a
-        href="/onboarding"
-        className="rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90"
-      >
-        Commencer
-      </a>
+      <div className="flex items-center gap-3">
+        <a
+          href="/sign-up"
+          className="rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+        >
+          Commencer
+        </a>
+        <a
+          href="/sign-in"
+          className="rounded-lg px-6 py-3 text-sm font-semibold text-black/60 transition hover:text-black"
+        >
+          Se connecter
+        </a>
+      </div>
     </main>
   );
 }

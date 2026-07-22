@@ -1,8 +1,9 @@
-import { pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, primaryKey } from "drizzle-orm/pg-core";
+import { user } from "./auth-schema";
 
 // Lean POC schema — logical domains in the public namespace: Venues, Events,
-// Performances, Users. Kept concise; columns are added when a feature needs
-// them (e.g. lat/lng once the map lands, provenance once ingestion returns).
+// Performances. Kept concise; columns are added when a feature needs them
+// (e.g. lat/lng once the map lands, provenance once ingestion returns).
 // Artists are deferred.
 
 // ---------- Venues ----------
@@ -39,12 +40,35 @@ export const performances = pgTable("performances", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-// ---------- Users ----------
-// Standalone for the POC. When better-auth lands it owns the auth identity
-// (email/sessions) and `pseudo` becomes the public handle layered on top.
+// ---------- Profiles (our user, layered on better-auth's `user`) ----------
+// better-auth owns login/identity; this holds who you are *on Scenes*. One row
+// is created when onboarding completes. `onboardedAt` set = onboarding done
+// (used to gate the /onboarding redirect).
 
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const profiles = pgTable("profiles", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
   pseudo: text("pseudo").notNull().unique(),
+  frequency: text("frequency"), // theatre-going cadence (rarely | yearly | monthly | weekly)
+  favoriteGenres: text("favorite_genres").array().notNull(), // bounded set, read as a whole
+  onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---------- Reference likes (onboarding cold-start signal) ----------
+// The past reference pieces a user flagged as loved — the strongest early taste
+// signal. `referencePieceId` is a string key from lib/reference-pieces.ts for
+// now; it becomes an FK to a real event once the catalogue is populated.
+
+export const referenceLikes = pgTable(
+  "reference_likes",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    referencePieceId: text("reference_piece_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.referencePieceId] })],
+);

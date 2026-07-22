@@ -1,13 +1,26 @@
-import { getCurrentUser } from "../../lib/current-user";
+import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { eq } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import { createDb, profiles } from "@scenes/db";
 import { OnboardingWizard } from "./OnboardingWizard";
 
 export const metadata = {
   title: "Bienvenue — Scenes",
 };
 
-export default function OnboardingPage() {
-  // Real session later; stub for now (see lib/current-user.ts).
-  getCurrentUser();
+export default async function OnboardingPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) redirect("/sign-in");
+
+  // Already onboarded? Skip straight to the app.
+  const db = createDb();
+  const [profile] = await db
+    .select({ onboardedAt: profiles.onboardedAt })
+    .from(profiles)
+    .where(eq(profiles.userId, session.user.id))
+    .limit(1);
+  if (profile?.onboardedAt) redirect("/");
 
   return (
     <main className="flex min-h-screen flex-col items-center px-6 py-16">
@@ -15,7 +28,7 @@ export default function OnboardingPage() {
         Scenes
       </a>
       <div className="mt-12 flex w-full flex-1 justify-center">
-        <OnboardingWizard />
+        <OnboardingWizard defaultPseudo={session.user.name ?? ""} />
       </div>
     </main>
   );
