@@ -6,7 +6,10 @@ WORKDIR /repo
 COPY package.json package-lock.json* ./
 COPY apps/web/package.json apps/web/
 COPY packages/db/package.json packages/db/
-RUN npm ci
+# --include=dev: the build needs devDependencies (tailwind, typescript,
+# @tailwindcss/postcss). Coolify injects NODE_ENV=production at build time, which
+# would otherwise make npm ci skip them and fail `next build`.
+RUN npm ci --include=dev
 
 FROM base AS build
 WORKDIR /repo
