@@ -1,8 +1,13 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
-import * as schema from "./schema.js";
+import * as domain from "./schema";
+import * as authTables from "./auth-schema";
 
-export * from "./schema.js";
+export * from "./schema";
+export * from "./auth-schema";
+
+// Drizzle needs every table (domain + better-auth's) to resolve relations.
+const schema = { ...domain, ...authTables };
 
 export function createDb(connectionString = process.env.DATABASE_URL) {
   if (!connectionString) throw new Error("DATABASE_URL is not set");
