@@ -363,13 +363,42 @@ Same flow, Base Directory `/`, Dockerfile Location `/apps/worker/Dockerfile`, **
 
 ## S5. Migrations
 
-Run once against the target DB, from Coolify's container terminal or your machine:
+The staging Postgres lives on Coolify's internal Docker network — it isn't
+reachable from the Mac by default, and the web app's standalone runtime image
+doesn't carry `drizzle-kit`. So the reliable way to apply migrations is a
+**temporary** exposure + real `drizzle-kit migrate` from the Mac (this seeds
+Drizzle's `drizzle.__drizzle_migrations` ledger correctly, so later migrations
+continue cleanly — raw `psql` of the SQL would skip the ledger and break the next
+migrate).
 
-```bash
-npm run db:migrate
-```
+1. **Coolify UI** — PostgreSQL resource → turn **"Make it publicly available" ON**,
+   set the public port to **`5433`** (not 5432 — local dev Postgres uses 5432 and
+   Lima forwards the VM port onto the Mac's `127.0.0.1`, so 5432 would clash).
+   Save; the resource restarts. Lima auto-forwards it to the Mac's `127.0.0.1:5433`.
 
-Later: promote this to a pre-deploy command in Coolify.
+2. **macOS (Mac Mini), repo root** — confirm reachability, then migrate. Keep the
+   URL in a gitignored file so the password never lands in shell history:
+
+   ```bash
+   nc -zv 127.0.0.1 5433                    # expect: succeeded
+   cat > .env.staging <<'EOF'
+   DATABASE_URL="postgres://postgres:<pw>@127.0.0.1:5433/postgres"
+   EOF
+   set -a; . ./.env.staging; set +a
+   npm run db:migrate                       # expect: migrations applied successfully!
+   ```
+
+   `<pw>` and the DB name come from the resource's connection string. If it fails,
+   drizzle-kit hides the cause — run a direct `pg` connect to see the real error
+   (auth / db name / SSL); append `?sslmode=disable` if SSL is the problem.
+
+3. **Coolify UI** — turn **"Make it publicly available" OFF** again.
+
+Verify: re-running the connect check should list the 9 tables and show 1+ ledger
+rows in `drizzle.__drizzle_migrations`.
+
+Later: promote this to a pre-deploy step in Coolify (needs an image/step that
+carries `drizzle-kit` + the `migrations/` folder — the web runtime image doesn't).
 
 ---
 
