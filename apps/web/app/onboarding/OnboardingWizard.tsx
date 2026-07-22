@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { REFERENCE_PIECES } from "../../lib/reference-pieces";
 
 // --- Placeholder content. These are proposals to react to, not final. Change
 // freely once you've clicked through the flow. ---
@@ -23,16 +24,6 @@ const FREQUENCIES = [
   { value: "yearly", label: "Quelques fois par an" },
   { value: "monthly", label: "Une fois par mois" },
   { value: "weekly", label: "Chaque semaine" },
-];
-
-// Stand-in for a real "shows you might have seen" grid (would come from the DB).
-const SAMPLE_SHOWS = [
-  { name: "Le Malade imaginaire", venue: "Comédie-Française" },
-  { name: "La Cantatrice chauve", venue: "Théâtre de la Huchette" },
-  { name: "Cyrano de Bergerac", venue: "Théâtre de l'Odéon" },
-  { name: "Singin' in the Rain", venue: "Théâtre du Châtelet" },
-  { name: "La Leçon", venue: "Théâtre de la Huchette" },
-  { name: "Le Misanthrope", venue: "Comédie-Française" },
 ];
 
 const STEP_TITLES = ["Ton profil", "Tes goûts", "Ce que tu as aimé"];
@@ -139,17 +130,18 @@ export function OnboardingWizard() {
           {step === 2 && (
             <div>
               <p className="text-sm text-black/60">
-                Sélectionne les spectacles que tu as aimés — ça nous aide à te
-                recommander la suite.
+                Parmi ces spectacles déjà passés, lesquels as-tu vus et
+                aimés&nbsp;? Tes choix nous aident à cerner tes goûts.
               </p>
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {SAMPLE_SHOWS.map((s) => (
+                {REFERENCE_PIECES.map((p) => (
                   <ShowCard
-                    key={s.name}
-                    name={s.name}
-                    venue={s.venue}
-                    active={likedShows.includes(s.name)}
-                    onClick={() => setLikedShows((prev) => toggle(prev, s.name))}
+                    key={p.id}
+                    name={p.name}
+                    venue={p.venue}
+                    genre={p.genre}
+                    active={likedShows.includes(p.id)}
+                    onClick={() => setLikedShows((prev) => toggle(prev, p.id))}
                   />
                 ))}
               </div>
@@ -224,11 +216,13 @@ function Chip({
 function ShowCard({
   name,
   venue,
+  genre,
   active,
   onClick,
 }: {
   name: string;
   venue: string;
+  genre: string;
   active: boolean;
   onClick: () => void;
 }) {
@@ -245,6 +239,9 @@ function ShowCard({
     >
       <span className="block font-medium">{name}</span>
       <span className="mt-0.5 block text-sm text-black/50">{venue}</span>
+      <span className="mt-2 inline-block rounded-full bg-black/5 px-2 py-0.5 text-xs text-black/50">
+        {genre}
+      </span>
     </button>
   );
 }
@@ -274,7 +271,16 @@ function Summary({
         <Row label="Fréquence" value={frequency} />
         <Row
           label="Spectacles aimés"
-          value={likedShows.length ? likedShows.join(", ") : "—"}
+          value={
+            likedShows.length
+              ? likedShows
+                  .map(
+                    (id) =>
+                      REFERENCE_PIECES.find((p) => p.id === id)?.name ?? id,
+                  )
+                  .join(", ")
+              : "—"
+          }
         />
       </dl>
     </div>
