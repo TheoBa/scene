@@ -306,6 +306,13 @@ function Summary({
           }
         />
       </dl>
+
+      <a
+        href="/shows"
+        className="mt-8 inline-block rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+      >
+        Découvrir les spectacles
+      </a>
     </div>
   );
 }

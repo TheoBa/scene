@@ -23,6 +23,12 @@ export default function Home() {
           Se connecter
         </a>
       </div>
+      <a
+        href="/shows"
+        className="text-sm font-medium text-black/50 underline-offset-4 hover:text-black hover:underline"
+      >
+        Parcourir les spectacles à l&apos;affiche
+      </a>
     </main>
   );
 }

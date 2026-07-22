@@ -22,6 +22,9 @@ export const venues = pgTable("venues", {
 export const events = pgTable("events", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
+  // Readable, crawlable URL key (/shows/le-malade-imaginaire). Generated from the
+  // name at seed time; becomes the canonical piece-page slug.
+  slug: text("slug").notNull().unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { createDb, profiles } from "@scenes/db";
+import { profiles } from "@scenes/db";
+import { getDb } from "@/lib/db";
 import { OnboardingWizard } from "./OnboardingWizard";
 
 export const metadata = {
@@ -14,13 +15,13 @@ export default async function OnboardingPage() {
   if (!session) redirect("/sign-in");
 
   // Already onboarded? Skip straight to the app.
-  const db = createDb();
+  const db = getDb();
   const [profile] = await db
     .select({ onboardedAt: profiles.onboardedAt })
     .from(profiles)
     .where(eq(profiles.userId, session.user.id))
     .limit(1);
-  if (profile?.onboardedAt) redirect("/");
+  if (profile?.onboardedAt) redirect("/shows");
 
   return (
     <main className="flex min-h-screen flex-col items-center px-6 py-16">

@@ -4,6 +4,17 @@
 import { createDb, events, performances, venues } from "../src/index.js";
 import { seedEvents, seedVenues } from "./data.js";
 
+// URL slug from a show name: strip accents, lowercase, non-alphanumerics → "-".
+// "La Leçon" → "la-lecon", "Singin' in the Rain" → "singin-in-the-rain".
+function slugify(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 async function main(): Promise<void> {
   const db = createDb();
   let eventCount = 0;
@@ -28,7 +39,7 @@ async function main(): Promise<void> {
     for (const e of seedEvents) {
       const [event] = await tx
         .insert(events)
-        .values({ name: e.name })
+        .values({ name: e.name, slug: slugify(e.name) })
         .returning({ id: events.id });
       eventCount++;
 
