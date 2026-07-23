@@ -20,6 +20,32 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+// Slugs with a poster committed at apps/web/public/posters/<slug>.jpg. Stored as
+// events.image_url = "<slug>.jpg"; shows not listed here keep image_url null.
+// (Only "Mauvaise graine" — already finished — lacks a poster.)
+const POSTER_SLUGS = new Set([
+  "anne-baquet-chante-au-paradis",
+  "l-embarras-du-choix",
+  "la-cantatrice-chauve",
+  "le-petit-chaperon-rouge",
+  "les-petites-femmes-de-maupassant",
+  "petites-miseres-de-la-vie-conjugale",
+  "bel-ami",
+  "juliette-victor-hugo-mon-fol-amour",
+  "odyssee-la-conference-musicale",
+  "le-cercle-des-poetes-disparus",
+  "les-miserables",
+  "crime-et-chatiment",
+  "le-silence-des-voix-qui-se-sont-tues",
+  "la-lecon",
+  "oublie-moi",
+  "les-justes",
+  "dernier-coup-de-ciseaux",
+  "sand-chopin",
+  "dolores",
+  "memoires-d-hadrien",
+]);
+
 const WEEKDAYS: Weekday[] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
 // Weekday of a yyyy-mm-dd calendar date (UTC math avoids server-tz drift).
@@ -87,16 +113,17 @@ async function main(): Promise<void> {
     }
 
     for (const show of seedShows) {
+      const slug = slugify(show.title);
       const [event] = await tx
         .insert(events)
         .values({
           name: show.title,
-          slug: slugify(show.title),
+          slug,
           author: show.author ?? null,
           director: show.director ?? null,
           tags: show.tags,
           durationMinutes: show.durationMinutes ?? null,
-          imageUrl: show.imageUrl ?? null,
+          imageUrl: POSTER_SLUGS.has(slug) ? `${slug}.jpg` : null,
           officialUrl: show.officialUrl ?? null,
         })
         .returning({ id: events.id });

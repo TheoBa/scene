@@ -21,7 +21,6 @@ export interface SeedShow {
   director?: string;
   tags: string[];
   durationMinutes?: number;
-  imageUrl?: string; // bare filename from the sheet; stored, not rendered yet
   officialUrl?: string;
   runs: SeedRun[];
 }
@@ -33,7 +32,6 @@ export const seedShows: SeedShow[] = [
     director: "Gérard Rauber",
     tags: ["musical", "tendresse", "légèreté", "grandes figures de la musique"],
     durationMinutes: 80,
-    imageUrl: "AFFICHE-Anne-Baquet-chante-au-Paradis-640x960.jpg",
     officialUrl: "https://www.lucernaire.fr/theatre/anne-baquet-chante-au-paradis/",
     runs: [
       {
@@ -49,7 +47,6 @@ export const seedShows: SeedShow[] = [
     author: "Sébastien Azzopardi, Sacha Danino",
     tags: ["comédie interactive", "humour", "choix interactif"],
     durationMinutes: 105,
-    imageUrl: "L'EMBARRAS DU CHOIX.jpeg",
     officialUrl: "https://gaite.com/spectacles/lembarras-du-choix/",
     runs: [
       {
@@ -72,7 +69,6 @@ export const seedShows: SeedShow[] = [
     director: "Nicolas Bataille",
     tags: ["théâtre absurde", "société contemporaine", "Eugène Ionesco"],
     durationMinutes: 60,
-    imageUrl: "la-cantatrice-chauve.jpg",
     officialUrl: "https://www.theatre-huchette.com/la-cantatrice-chauve/",
     runs: [
       {
@@ -90,7 +86,6 @@ export const seedShows: SeedShow[] = [
     director: "Sarah Gabrielle",
     tags: ["contes", "retour en enfance", "tendresse", "jeune public"],
     durationMinutes: 50,
-    imageUrl: "AFFICHE-Le-Petit-chaperon-rouge-640x960-2.jpg",
     officialUrl: "https://www.lucernaire.fr/theatre/le-petit-chaperon-rouge/",
     runs: [
       {
@@ -108,7 +103,6 @@ export const seedShows: SeedShow[] = [
     director: "Gwenhaël de Gouvello",
     tags: ["grand classique", "ironie", "tendresse", "humour", "sensualité"],
     durationMinutes: 95,
-    imageUrl: "AFFICHE-Les-Petites-femmes-de-Maupassant-640x960.jpg",
     officialUrl: "https://www.lucernaire.fr/theatre/les-petites-femmes-de-maupassant/",
     runs: [
       {
@@ -124,7 +118,6 @@ export const seedShows: SeedShow[] = [
     author: "Honoré de Balzac",
     tags: ["théâtre classique", "comédie", "humour", "cynisme", "vie conjugale"],
     durationMinutes: 105,
-    imageUrl: "AFF-BALZAC-II-PP-VSD-1920x2880.jpg",
     officialUrl: "https://www.theatredepoche-montparnasse.com/spectacle/petites-miseres-de-la-vie-conjugale/",
     // No weekday times in the sheet — kept for metadata; yields no performances.
     runs: [{ start: "2026-04-30", end: "2026-06-27", times: {} }],
@@ -135,7 +128,6 @@ export const seedShows: SeedShow[] = [
     author: "Guy de Maupassant",
     tags: ["années 1880", "grand classique", "ambition destructrice"],
     durationMinutes: 80,
-    imageUrl: "AFFICHE-Bel-Ami_2026_prolongations.jpg",
     officialUrl: "https://www.lucernaire.fr/theatre/bel-ami/",
     runs: [
       {
@@ -152,7 +144,6 @@ export const seedShows: SeedShow[] = [
     director: "Alboflède",
     tags: ["Victor Hugo", "Juliette Drouet", "correspondance", "biopic", "romance"],
     durationMinutes: 75,
-    imageUrl: "JULIETTE.-affiche-prolongations.jpg",
     officialUrl: "https://www.theatredesmathurins.com/spectacles/juliette-victor-hugo-mon-fol-amour/",
     runs: [{ start: "2026-01-18", end: "2026-05-25", times: { mon: ["19:00"] } }],
   },
@@ -163,7 +154,6 @@ export const seedShows: SeedShow[] = [
     director: "Stéphanie Gagneux",
     tags: ["comédie musicale", "chant", "danse", "Ulysse et Pénélope", "aventures"],
     durationMinutes: 70,
-    imageUrl: "AFFICHE-Odyssee_2023.jpg",
     officialUrl: "https://www.lucernaire.fr/theatre/odyssee-la-conference-musicale-2/",
     runs: [
       {
@@ -179,7 +169,6 @@ export const seedShows: SeedShow[] = [
     venue: "Théâtre Antoine - Simone Berriau",
     tags: ["théâtre contemporain", "drame", "poétique", "liberté", "éducation"],
     durationMinutes: 120,
-    imageUrl: "1080x1440_TA-LE-CERCLE-2026.jpg",
     officialUrl: "https://theatre-antoine.com/event-pro/le-cercle-des-poetes-disparus/",
     runs: [
       {
@@ -196,7 +185,6 @@ export const seedShows: SeedShow[] = [
     director: "Compagnie Chouchenko",
     tags: ["classique", "drame", "historique", "Victor Hugo"],
     durationMinutes: 110,
-    imageUrl: "Hebertot_MSBL_1200x1800.jpg",
     officialUrl: "https://www.theatrehebertot.com/spectacle/les-miserables",
     runs: [{ start: "2026-05-15", end: "2026-05-31", times: { sat: ["21:00"], sun: ["15:30"] } }],
   },
@@ -207,7 +195,6 @@ export const seedShows: SeedShow[] = [
     director: "Dominique Scheer-Hazemann",
     tags: ["adaptation musicale", "Dostoïevski", "thriller", "drame", "enquête"],
     durationMinutes: 75,
-    imageUrl: "crime-et-chatiment.jpg",
     officialUrl: "https://www.theatre-huchette.com/crime-et-chatiment/",
     runs: [
       {
@@ -225,7 +212,6 @@ export const seedShows: SeedShow[] = [
     director: "Aude Galliou",
     tags: ["humour noir", "cynisme", "couple", "maternité"],
     durationMinutes: 90,
-    imageUrl: "tdv-marine-leonardi-1200x1800-v2.jpg",
     officialUrl: "https://www.theatredesvarietes.fr/spectacles/marine-leonardi-mauvaise-graine/",
     runs: [{ start: "2026-05-13", end: "2026-05-29", times: { thu: ["20:00"], fri: ["20:00"], sat: ["20:00"] } }],
   },
@@ -236,7 +222,6 @@ export const seedShows: SeedShow[] = [
     director: "La Compagnie Harpagon",
     tags: ["Histoire", "Résistance", "Seconde Guerre mondiale"],
     durationMinutes: 70,
-    imageUrl: "SDVT.jpg",
     officialUrl: "https://www.theatredesmathurins.com/spectacles/le-silence-des-voix-qui-se-sont-tues/",
     runs: [{ start: "2026-01-20", end: "2026-04-27", times: { wed: ["19:00"] } }],
   },
@@ -247,7 +232,6 @@ export const seedShows: SeedShow[] = [
     director: "Marcel Cuvelier",
     tags: ["théâtre contemporain", "comédie", "absurde", "société"],
     durationMinutes: 60,
-    imageUrl: "la-lecon-ionesco.jpg",
     officialUrl: "https://www.theatre-huchette.com/la-lecon/",
     runs: [
       {
@@ -263,7 +247,6 @@ export const seedShows: SeedShow[] = [
     author: "Matthew Seager",
     tags: ["amour", "Alzheimer", "drame", "romance", "Molières 2023"],
     durationMinutes: 75,
-    imageUrl: "AFF-40X60-OUBLIE-MOI-BASSE-DEF.jpg",
     officialUrl: "http://www.theatrelabruyere.com/spectacle/oublie-moi",
     runs: [
       {
@@ -280,7 +263,6 @@ export const seedShows: SeedShow[] = [
     director: "Maxime d'Aboville",
     tags: ["poignant", "Albert Camus", "humaniste"],
     durationMinutes: 80,
-    imageUrl: "AFF-CAMUS-II-ROUGE-ALTERNANCE-1-1920x2880.jpg",
     officialUrl: "https://www.theatredepoche-montparnasse.com/spectacle/les-justes/",
     runs: [
       {
@@ -296,7 +278,6 @@ export const seedShows: SeedShow[] = [
     author: "Paul Pörtner",
     tags: ["comédie policière", "interactive", "enquête", "Molière 2014"],
     durationMinutes: 120,
-    imageUrl: "DerniersCoups-deCiseaux.jpeg",
     runs: [
       {
         start: "2026-07-31",
@@ -316,7 +297,6 @@ export const seedShows: SeedShow[] = [
     author: "George Sand (textes réunis par Bruno Villien)",
     tags: ["historique", "histoire d'amour", "musical", "romantisme"],
     durationMinutes: 70,
-    imageUrl: "AFF-SAND-III-1-1920x2880.jpg",
     officialUrl: "https://www.theatredepoche-montparnasse.com/spectacle/sand-chopin/",
     runs: [
       {
@@ -333,7 +313,6 @@ export const seedShows: SeedShow[] = [
     author: "Yann Guillon, Stéphane Laporte",
     tags: ["flamenco", "résistance", "vengeance", "cabaret"],
     durationMinutes: 90,
-    imageUrl: "AFF-DOLORES-JANV-2026-WEB.jpg",
     officialUrl: "https://www.theatrelabruyere.com/spectacle/dolores",
     runs: [
       {
@@ -350,7 +329,6 @@ export const seedShows: SeedShow[] = [
     director: "Renaud Meyer",
     tags: ["philosophique", "figure légendaire", "souvenirs", "beautés de l'art"],
     durationMinutes: 75,
-    imageUrl: "AFF-HADRIEN-SITE-1-1920x2880.jpg",
     officialUrl: "https://www.theatredepoche-montparnasse.com/spectacle/memoires-dhadrien-3/",
     runs: [
       {
