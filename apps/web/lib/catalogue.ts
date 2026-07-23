@@ -1,6 +1,11 @@
-import { and, asc, eq, gte } from "drizzle-orm";
-import { events, performances, venues } from "@scenes/db";
+import { and, asc, count, eq, gte } from "drizzle-orm";
+import { events, performances, reactions, venues } from "@scenes/db";
 import { getDb } from "./db";
+import {
+  emptyReactionCounts,
+  isReactionKind,
+  type ReactionKind,
+} from "./reactions";
 
 export interface ShowCard {
   slug: string;
@@ -13,6 +18,7 @@ export interface ShowCard {
 }
 
 export interface ShowDetail {
+  id: string;
   name: string;
   slug: string;
   author: string | null;
@@ -100,6 +106,7 @@ export async function getShowBySlug(slug: string): Promise<ShowDetail | null> {
     .orderBy(asc(performances.startsAt));
 
   return {
+    id: event.id,
     name: event.name,
     slug: event.slug,
     author: event.author,
@@ -110,4 +117,44 @@ export async function getShowBySlug(slug: string): Promise<ShowDetail | null> {
     officialUrl: event.officialUrl,
     performances: perfs,
   };
+}
+
+export interface EventReactions {
+  counts: Record<ReactionKind, number>;
+  total: number;
+  mine: ReactionKind | null; // the signed-in user's reaction, if any
+}
+
+// Reaction counts for an event, plus the current user's own reaction. Unknown
+// `kind` values (e.g. a reaction kind removed from the app later) are ignored.
+export async function getEventReactions(
+  eventId: string,
+  userId?: string,
+): Promise<EventReactions> {
+  const db = getDb();
+
+  const grouped = await db
+    .select({ kind: reactions.kind, n: count() })
+    .from(reactions)
+    .where(eq(reactions.eventId, eventId))
+    .groupBy(reactions.kind);
+
+  const counts = emptyReactionCounts();
+  let total = 0;
+  for (const row of grouped) {
+    total += row.n;
+    if (isReactionKind(row.kind)) counts[row.kind] = row.n;
+  }
+
+  let mine: ReactionKind | null = null;
+  if (userId) {
+    const [row] = await db
+      .select({ kind: reactions.kind })
+      .from(reactions)
+      .where(and(eq(reactions.eventId, eventId), eq(reactions.userId, userId)))
+      .limit(1);
+    if (row && isReactionKind(row.kind)) mine = row.kind;
+  }
+
+  return { counts, total, mine };
 }

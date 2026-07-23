@@ -91,3 +91,23 @@ export const referenceLikes = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.referencePieceId] })],
 );
+
+// ---------- Reactions (Facebook-style emoji rating on a show) ----------
+// One reaction per user per event — the composite PK enforces "single emoji".
+// `kind` is validated in-app against apps/web/lib/reactions.ts (like | exceptional
+// | funny | emotional). Reacts to the event (production), not a single showing.
+
+export const reactions = pgTable(
+  "reactions",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.eventId] })],
+);

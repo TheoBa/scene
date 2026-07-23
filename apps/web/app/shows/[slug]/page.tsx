@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import type { Metadata } from "next";
-import { getShowBySlug } from "@/lib/catalogue";
+import { auth } from "@/lib/auth";
+import { getShowBySlug, getEventReactions } from "@/lib/catalogue";
 import { formatDateTime } from "@/lib/format";
+import { Reactions } from "./Reactions";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +31,9 @@ export default async function ShowPage({
   const { slug } = await params;
   const show = await getShowBySlug(slug);
   if (!show) notFound();
+
+  const session = await auth.api.getSession({ headers: await headers() });
+  const reactions = await getEventReactions(show.id, session?.user.id);
 
   const MAX_DATES = 12;
   const shownDates = show.performances.slice(0, MAX_DATES);
@@ -119,7 +125,21 @@ export default async function ShowPage({
         )}
       </section>
 
-      {/* Ratings and the ticketing affiliate link land here in a later phase. */}
+      <section className="mt-10">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-black/40">
+          Réactions
+        </h2>
+        <div className="mt-4">
+          <Reactions
+            slug={slug}
+            counts={reactions.counts}
+            mine={reactions.mine}
+            signedIn={!!session}
+          />
+        </div>
+      </section>
+
+      {/* The ticketing affiliate link lands here in a later phase. */}
     </main>
   );
 }

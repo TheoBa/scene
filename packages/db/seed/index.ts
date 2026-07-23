@@ -2,8 +2,18 @@
 // Expands each show's weekly schedule (times per weekday over a run range, minus
 // relâche) into concrete `performances`. Idempotent. Needs DATABASE_URL.
 //   npm run db:seed            (from repo root)
-import { createDb, events, performances, venues } from "../src/index.js";
-import { seedShows, type Weekday } from "./data.js";
+import { createDb, events, performances, reactions, user, venues } from "../src/index.js";
+import { seedShows, seedDemoUsers, type Weekday } from "./data.js";
+
+// Kept in sync with apps/web/lib/reactions.ts (packages/db must not import from
+// the web app). Used only to seed demo reaction counts.
+const REACTION_KINDS = ["like", "exceptional", "funny", "emotional"] as const;
+
+// Deterministic 0..1 pseudo-random from two integers — stable across reseeds.
+function rand01(a: number, b: number): number {
+  const x = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
 
 // Only materialise performances within this window from "now". Some runs last a
 // year+ (La Cantatrice, La Leçon) — expanding them all would create thousands of
@@ -97,6 +107,7 @@ async function main(): Promise<void> {
   const horizonCal = parisCalendarDate(new Date(now.getTime() + HORIZON_DAYS * 86_400_000));
 
   let perfCount = 0;
+  let reactionCount = 0;
 
   await db.transaction(async (tx) => {
     // Clear catalogue in FK order (performances → events/venues). Users untouched.
@@ -112,6 +123,7 @@ async function main(): Promise<void> {
       venueId.set(name, row.id);
     }
 
+    const eventIds: string[] = [];
     for (const show of seedShows) {
       const slug = slugify(show.title);
       const [event] = await tx
@@ -127,6 +139,7 @@ async function main(): Promise<void> {
           officialUrl: show.officialUrl ?? null,
         })
         .returning({ id: events.id });
+      eventIds.push(event.id);
 
       const vid = venueId.get(show.venue);
       if (!vid) throw new Error(`unknown venue "${show.venue}" for "${show.title}"`);
@@ -153,11 +166,42 @@ async function main(): Promise<void> {
         perfCount += rows.length;
       }
     }
+
+    // Demo reactions — stable throwaway users spread across shows so counts look
+    // alive. onConflictDoNothing keeps reseeds from duplicating the users; old
+    // reactions were cascade-deleted when the events were cleared above.
+    await tx
+      .insert(user)
+      .values(
+        seedDemoUsers.map((u) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          emailVerified: true,
+        })),
+      )
+      .onConflictDoNothing();
+
+    const reactionRows: { userId: string; eventId: string; kind: string }[] = [];
+    eventIds.forEach((eventId, ei) => {
+      seedDemoUsers.forEach((u, ui) => {
+        if (rand01(ui + 1, ei + 1) < 0.6) {
+          const kind =
+            REACTION_KINDS[Math.floor(rand01(ei + 1, ui + 7) * REACTION_KINDS.length)];
+          reactionRows.push({ userId: u.id, eventId, kind });
+        }
+      });
+    });
+    if (reactionRows.length) {
+      await tx.insert(reactions).values(reactionRows);
+      reactionCount = reactionRows.length;
+    }
   });
 
   console.log(
     `[seed] done — ${new Set(seedShows.map((s) => s.venue)).size} venues, ` +
-      `${seedShows.length} shows, ${perfCount} upcoming performances (${HORIZON_DAYS}d horizon)`,
+      `${seedShows.length} shows, ${perfCount} upcoming performances (${HORIZON_DAYS}d horizon), ` +
+      `${reactionCount} demo reactions`,
   );
 }
 
