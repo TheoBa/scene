@@ -40,37 +40,51 @@ export default async function ShowPage({
         ← Tous les spectacles
       </Link>
 
-      <h1 className="mt-8 font-display text-4xl font-extrabold tracking-tight">
-        {show.name}
-      </h1>
-      {subtitle && <p className="mt-2 text-black/60">{subtitle}</p>}
+      <div className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-start">
+        {show.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={`/posters/${show.imageUrl}`}
+            alt={`Affiche : ${show.name}`}
+            className="w-44 shrink-0 self-center rounded-xl object-cover shadow-sm ring-1 ring-black/5 sm:self-start"
+          />
+        )}
+        <div>
+          <h1 className="font-display text-4xl font-extrabold tracking-tight">
+            {show.name}
+          </h1>
+          {subtitle && <p className="mt-2 text-black/60">{subtitle}</p>}
 
-      {(show.tags.length > 0 || show.durationMinutes) && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {show.tags.map((t) => (
-            <span
-              key={t}
-              className="rounded-full bg-black/5 px-2.5 py-1 text-xs text-black/60"
+          {(show.tags.length > 0 || show.durationMinutes) && (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              {show.tags.map((t) => (
+                <span
+                  key={t}
+                  className="rounded-full bg-black/5 px-2.5 py-1 text-xs text-black/60"
+                >
+                  {t}
+                </span>
+              ))}
+              {show.durationMinutes && (
+                <span className="text-xs text-black/40">
+                  {show.durationMinutes} min
+                </span>
+              )}
+            </div>
+          )}
+
+          {show.officialUrl && (
+            <a
+              href={show.officialUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-5 inline-block text-sm font-medium text-[var(--accent)] underline-offset-4 hover:underline"
             >
-              {t}
-            </span>
-          ))}
-          {show.durationMinutes && (
-            <span className="text-xs text-black/40">{show.durationMinutes} min</span>
+              Site officiel du spectacle ↗
+            </a>
           )}
         </div>
-      )}
-
-      {show.officialUrl && (
-        <a
-          href={show.officialUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-5 inline-block text-sm font-medium text-[var(--accent)] underline-offset-4 hover:underline"
-        >
-          Site officiel du spectacle ↗
-        </a>
-      )}
+      </div>
 
       <section className="mt-10">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-black/40">

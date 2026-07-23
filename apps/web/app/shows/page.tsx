@@ -39,9 +39,19 @@ export default async function ShowsPage() {
             <li key={s.slug}>
               <Link
                 href={`/shows/${s.slug}`}
-                className="flex items-center justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 transition hover:ring-black/15"
+                className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5 transition hover:ring-black/15"
               >
-                <div>
+                {s.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`/posters/${s.imageUrl}`}
+                    alt=""
+                    className="h-24 w-16 shrink-0 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="h-24 w-16 shrink-0 rounded-lg bg-black/5" />
+                )}
+                <div className="min-w-0 flex-1">
                   <span className="block font-display text-lg font-bold tracking-tight">
                     {s.name}
                   </span>

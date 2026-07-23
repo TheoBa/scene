@@ -6,6 +6,7 @@ export interface ShowCard {
   slug: string;
   name: string;
   author: string | null;
+  imageUrl: string | null;
   nextStartsAt: Date; // soonest upcoming performance
   nextVenue: string;
   upcomingCount: number;
@@ -18,6 +19,7 @@ export interface ShowDetail {
   director: string | null;
   tags: string[];
   durationMinutes: number | null;
+  imageUrl: string | null;
   officialUrl: string | null;
   performances: { startsAt: Date; venue: string; address: string | null }[];
 }
@@ -31,6 +33,7 @@ export async function listUpcomingShows(): Promise<ShowCard[]> {
       slug: events.slug,
       name: events.name,
       author: events.author,
+      imageUrl: events.imageUrl,
       startsAt: performances.startsAt,
       venue: venues.name,
     })
@@ -51,6 +54,7 @@ export async function listUpcomingShows(): Promise<ShowCard[]> {
         slug: r.slug,
         name: r.name,
         author: r.author,
+        imageUrl: r.imageUrl,
         nextStartsAt: r.startsAt,
         nextVenue: r.venue,
         upcomingCount: 1,
@@ -74,6 +78,7 @@ export async function getShowBySlug(slug: string): Promise<ShowDetail | null> {
       director: events.director,
       tags: events.tags,
       durationMinutes: events.durationMinutes,
+      imageUrl: events.imageUrl,
       officialUrl: events.officialUrl,
     })
     .from(events)
@@ -101,6 +106,7 @@ export async function getShowBySlug(slug: string): Promise<ShowDetail | null> {
     director: event.director,
     tags: event.tags,
     durationMinutes: event.durationMinutes,
+    imageUrl: event.imageUrl,
     officialUrl: event.officialUrl,
     performances: perfs,
   };
