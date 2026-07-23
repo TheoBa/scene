@@ -11,7 +11,7 @@ export function SignOutButton({ className }: { className?: string }) {
   function onClick() {
     startTransition(async () => {
       await signOut();
-      router.push("/");
+      router.push("/shows");
       router.refresh(); // re-render server components so the header updates
     });
   }

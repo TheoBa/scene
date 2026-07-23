@@ -10,7 +10,7 @@ export async function SiteHeader() {
   return (
     <header className="flex items-center justify-between gap-4">
       <Link
-        href="/"
+        href="/shows"
         className="font-display text-xl font-extrabold tracking-tight"
       >
         Scenes

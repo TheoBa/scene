@@ -42,63 +42,88 @@ export default async function ShowPage({
   const subtitle = [show.author, show.director].filter(Boolean).join(" · ");
 
   return (
-    <main className="mx-auto min-h-screen max-w-2xl px-6 py-12">
+    <div className="mx-auto min-h-screen max-w-4xl px-6 py-12">
       <SiteHeader />
 
       <Link
         href="/shows"
-        className="mt-10 inline-block text-sm text-black/50 hover:text-black"
+        className="mt-10 inline-block text-sm text-black/50 transition hover:text-black"
       >
         ← Tous les spectacles
       </Link>
 
-      <div className="mt-8 flex flex-col gap-6 sm:flex-row sm:items-start">
+      {/* Poster-forward hero: the artwork bleeds behind a dark scrim with the
+          sharp poster and the title sitting on top. */}
+      <section className="relative mt-6 overflow-hidden rounded-3xl bg-neutral-900 shadow-sm ring-1 ring-black/5">
         {show.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={`/posters/${show.imageUrl}`}
-            alt={`Affiche : ${show.name}`}
-            className="w-44 shrink-0 self-center rounded-xl object-cover shadow-sm ring-1 ring-black/5 sm:self-start"
+            alt=""
+            aria-hidden
+            className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-2xl"
           />
         )}
-        <div>
-          <h1 className="font-display text-4xl font-extrabold tracking-tight">
-            {show.name}
-          </h1>
-          {subtitle && <p className="mt-2 text-black/60">{subtitle}</p>}
+        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/75 to-neutral-900/40" />
 
-          {(show.tags.length > 0 || show.durationMinutes) && (
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              {show.tags.map((t) => (
-                <span
-                  key={t}
-                  className="rounded-full bg-black/5 px-2.5 py-1 text-xs text-black/60"
-                >
-                  {t}
-                </span>
-              ))}
-              {show.durationMinutes && (
-                <span className="text-xs text-black/40">
-                  {show.durationMinutes} min
-                </span>
-              )}
+        <div className="relative flex flex-col items-center gap-8 p-8 sm:flex-row sm:items-end sm:p-10">
+          {show.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`/posters/${show.imageUrl}`}
+              alt={`Affiche : ${show.name}`}
+              className="w-44 shrink-0 rounded-2xl object-cover shadow-2xl ring-1 ring-white/10 sm:w-52"
+            />
+          ) : (
+            <div className="flex aspect-[3/4] w-44 shrink-0 items-center justify-center rounded-2xl bg-white/5 ring-1 ring-white/10 sm:w-52">
+              <span className="font-display text-2xl font-bold text-white/20">
+                Scenes
+              </span>
             </div>
           )}
 
-          {show.officialUrl && (
-            <a
-              href={show.officialUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-5 inline-block text-sm font-medium text-[var(--accent)] underline-offset-4 hover:underline"
-            >
-              Site officiel du spectacle ↗
-            </a>
-          )}
-        </div>
-      </div>
+          <div className="flex min-w-0 flex-col items-center text-center text-white sm:items-start sm:text-left">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/60">
+              À l&apos;affiche
+            </p>
+            <h1 className="mt-2 font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
+              {show.name}
+            </h1>
+            {subtitle && <p className="mt-3 text-white/70">{subtitle}</p>}
 
-      <section className="mt-10">
+            {(show.tags.length > 0 || show.durationMinutes) && (
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                {show.tags.map((t) => (
+                  <span
+                    key={t}
+                    className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80 ring-1 ring-white/10"
+                  >
+                    {t}
+                  </span>
+                ))}
+                {show.durationMinutes && (
+                  <span className="text-xs text-white/50">
+                    {show.durationMinutes} min
+                  </span>
+                )}
+              </div>
+            )}
+
+            {show.officialUrl && (
+              <a
+                href={show.officialUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-6 inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-neutral-900 transition hover:bg-white/90"
+              >
+                Site officiel du spectacle ↗
+              </a>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-12">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-black/40">
           Prochaines dates
         </h2>
@@ -106,11 +131,11 @@ export default async function ShowPage({
           <p className="mt-4 text-black/50">Aucune date à venir.</p>
         ) : (
           <>
-            <ul className="mt-4 space-y-2">
+            <ul className="mt-4 grid gap-2 sm:grid-cols-2">
               {shownDates.map((p, i) => (
                 <li
                   key={i}
-                  className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-black/5"
+                  className="flex items-center justify-between gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-black/5"
                 >
                   <span className="font-medium capitalize">
                     {formatDateTime(p.startsAt)}
@@ -131,7 +156,7 @@ export default async function ShowPage({
         )}
       </section>
 
-      <section className="mt-10">
+      <section className="mt-12">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-black/40">
           Réactions
         </h2>
@@ -146,6 +171,6 @@ export default async function ShowPage({
       </section>
 
       {/* The ticketing affiliate link lands here in a later phase. */}
-    </main>
+    </div>
   );
 }
