@@ -1,4 +1,12 @@
-import { pgTable, uuid, text, timestamp, primaryKey } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  uuid,
+  text,
+  timestamp,
+  integer,
+  primaryKey,
+} from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { user } from "./auth-schema";
 
 // Lean POC schema — logical domains in the public namespace: Venues, Events,
@@ -25,6 +33,14 @@ export const events = pgTable("events", {
   // Readable, crawlable URL key (/shows/le-malade-imaginaire). Generated from the
   // name at seed time; becomes the canonical piece-page slug.
   slug: text("slug").notNull().unique(),
+  // Curated production metadata (from the manual catalogue). All optional so a
+  // sparsely-known show still fits.
+  author: text("author"), // auteur / playwright
+  director: text("director"), // metteur en scène / compagnie
+  tags: text("tags").array().notNull().default(sql`'{}'::text[]`), // free descriptive tags (genre-ish)
+  durationMinutes: integer("duration_minutes"),
+  imageUrl: text("image_url"), // poster; a bare filename for now, not rendered yet
+  officialUrl: text("official_url"), // the venue's official page for the show
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

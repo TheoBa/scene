@@ -1,11 +1,16 @@
-// Seed runner — resets the catalogue tables and inserts the manual data from
-// ./data.ts. Idempotent: re-running gives the same result. Needs DATABASE_URL.
+// Seed runner — resets the catalogue and inserts the manual data from ./data.ts.
+// Expands each show's weekly schedule (times per weekday over a run range, minus
+// relâche) into concrete `performances`. Idempotent. Needs DATABASE_URL.
 //   npm run db:seed            (from repo root)
 import { createDb, events, performances, venues } from "../src/index.js";
-import { seedEvents, seedVenues } from "./data.js";
+import { seedShows, type Weekday } from "./data.js";
+
+// Only materialise performances within this window from "now". Some runs last a
+// year+ (La Cantatrice, La Leçon) — expanding them all would create thousands of
+// far-future rows nobody will look at. The catalogue only shows what's upcoming.
+const HORIZON_DAYS = 90;
 
 // URL slug from a show name: strip accents, lowercase, non-alphanumerics → "-".
-// "La Leçon" → "la-lecon", "Singin' in the Rain" → "singin-in-the-rain".
 function slugify(name: string): string {
   return name
     .normalize("NFD")
@@ -15,9 +20,56 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+const WEEKDAYS: Weekday[] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+
+// Weekday of a yyyy-mm-dd calendar date (UTC math avoids server-tz drift).
+function weekdayOf(iso: string): Weekday {
+  const [y, m, d] = iso.split("-").map(Number);
+  return WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+}
+
+// Next calendar day, as yyyy-mm-dd.
+function addDay(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
+}
+
+// Calendar date (yyyy-mm-dd) of an instant, in Europe/Paris.
+function parisCalendarDate(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+// The UTC instant for a wall-clock Europe/Paris time — DST-correct (finds the
+// zone offset for that specific date rather than assuming +01:00/+02:00).
+function parisWallClockToUtc(iso: string, hhmm: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  const [h, mi] = hhmm.split(":").map(Number);
+  const guess = Date.UTC(y, m - 1, d, h, mi);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Paris",
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(new Date(guess));
+  const get = (t: string) => Number(parts.find((p) => p.type === t)!.value);
+  const parisAsUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"));
+  return new Date(guess - (parisAsUtc - guess));
+}
+
 async function main(): Promise<void> {
   const db = createDb();
-  let eventCount = 0;
+  const now = new Date();
+  const todayCal = parisCalendarDate(now);
+  const horizonCal = parisCalendarDate(new Date(now.getTime() + HORIZON_DAYS * 86_400_000));
+
   let perfCount = 0;
 
   await db.transaction(async (tx) => {
@@ -26,40 +78,59 @@ async function main(): Promise<void> {
     await tx.delete(events);
     await tx.delete(venues);
 
-    // Venues first — keep a name → id map to resolve performance references.
+    // Distinct venues (already normalised in data.ts) → name → id map.
+    const venueNames = [...new Set(seedShows.map((s) => s.venue))];
     const venueId = new Map<string, string>();
-    for (const v of seedVenues) {
-      const [row] = await tx
-        .insert(venues)
-        .values({ name: v.name, address: v.address })
-        .returning({ id: venues.id });
-      venueId.set(v.name, row.id);
+    for (const name of venueNames) {
+      const [row] = await tx.insert(venues).values({ name }).returning({ id: venues.id });
+      venueId.set(name, row.id);
     }
 
-    for (const e of seedEvents) {
+    for (const show of seedShows) {
       const [event] = await tx
         .insert(events)
-        .values({ name: e.name, slug: slugify(e.name) })
+        .values({
+          name: show.title,
+          slug: slugify(show.title),
+          author: show.author ?? null,
+          director: show.director ?? null,
+          tags: show.tags,
+          durationMinutes: show.durationMinutes ?? null,
+          imageUrl: show.imageUrl ?? null,
+          officialUrl: show.officialUrl ?? null,
+        })
         .returning({ id: events.id });
-      eventCount++;
 
-      for (const p of e.performances) {
-        const vid = venueId.get(p.venue);
-        if (!vid) {
-          throw new Error(`unknown venue "${p.venue}" for event "${e.name}"`);
+      const vid = venueId.get(show.venue);
+      if (!vid) throw new Error(`unknown venue "${show.venue}" for "${show.title}"`);
+
+      const rows: { eventId: string; venueId: string; startsAt: Date }[] = [];
+      for (const run of show.runs) {
+        const relache = new Set(run.relache ?? []);
+        // Clamp iteration to [today, today+horizon] ∩ run range (ISO dates sort lexically).
+        const from = run.start > todayCal ? run.start : todayCal;
+        const to = run.end < horizonCal ? run.end : horizonCal;
+        for (let d = from; d <= to; d = addDay(d)) {
+          if (relache.has(d)) continue;
+          const times = run.times[weekdayOf(d)];
+          if (!times) continue;
+          for (const t of times) {
+            const startsAt = parisWallClockToUtc(d, t);
+            if (startsAt >= now) rows.push({ eventId: event.id, venueId: vid, startsAt });
+          }
         }
-        await tx.insert(performances).values({
-          eventId: event.id,
-          venueId: vid,
-          startsAt: new Date(p.startsAt),
-        });
-        perfCount++;
+      }
+
+      if (rows.length) {
+        await tx.insert(performances).values(rows);
+        perfCount += rows.length;
       }
     }
   });
 
   console.log(
-    `[seed] done — ${seedVenues.length} venues, ${eventCount} events, ${perfCount} performances`,
+    `[seed] done — ${new Set(seedShows.map((s) => s.venue)).size} venues, ` +
+      `${seedShows.length} shows, ${perfCount} upcoming performances (${HORIZON_DAYS}d horizon)`,
   );
 }
 

@@ -29,6 +29,11 @@ export default async function ShowPage({
   const show = await getShowBySlug(slug);
   if (!show) notFound();
 
+  const MAX_DATES = 12;
+  const shownDates = show.performances.slice(0, MAX_DATES);
+  const moreDates = show.performances.length - shownDates.length;
+  const subtitle = [show.author, show.director].filter(Boolean).join(" · ");
+
   return (
     <main className="mx-auto min-h-screen max-w-2xl px-6 py-12">
       <Link href="/shows" className="text-sm text-black/50 hover:text-black">
@@ -38,6 +43,34 @@ export default async function ShowPage({
       <h1 className="mt-8 font-display text-4xl font-extrabold tracking-tight">
         {show.name}
       </h1>
+      {subtitle && <p className="mt-2 text-black/60">{subtitle}</p>}
+
+      {(show.tags.length > 0 || show.durationMinutes) && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {show.tags.map((t) => (
+            <span
+              key={t}
+              className="rounded-full bg-black/5 px-2.5 py-1 text-xs text-black/60"
+            >
+              {t}
+            </span>
+          ))}
+          {show.durationMinutes && (
+            <span className="text-xs text-black/40">{show.durationMinutes} min</span>
+          )}
+        </div>
+      )}
+
+      {show.officialUrl && (
+        <a
+          href={show.officialUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-5 inline-block text-sm font-medium text-[var(--accent)] underline-offset-4 hover:underline"
+        >
+          Site officiel du spectacle ↗
+        </a>
+      )}
 
       <section className="mt-10">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-black/40">
@@ -46,21 +79,29 @@ export default async function ShowPage({
         {show.performances.length === 0 ? (
           <p className="mt-4 text-black/50">Aucune date à venir.</p>
         ) : (
-          <ul className="mt-4 space-y-2">
-            {show.performances.map((p, i) => (
-              <li
-                key={i}
-                className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-black/5"
-              >
-                <span className="font-medium capitalize">
-                  {formatDateTime(p.startsAt)}
-                </span>
-                <span className="text-right text-sm text-black/50">
-                  {p.venue}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="mt-4 space-y-2">
+              {shownDates.map((p, i) => (
+                <li
+                  key={i}
+                  className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-black/5"
+                >
+                  <span className="font-medium capitalize">
+                    {formatDateTime(p.startsAt)}
+                  </span>
+                  <span className="text-right text-sm text-black/50">
+                    {p.venue}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {moreDates > 0 && (
+              <p className="mt-3 text-sm text-black/40">
+                + {moreDates} autre{moreDates > 1 ? "s" : ""} date
+                {moreDates > 1 ? "s" : ""} à venir
+              </p>
+            )}
+          </>
         )}
       </section>
 
