@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { getShowBySlug, getEventReactions } from "@/lib/catalogue";
 import { formatDateTime } from "@/lib/format";
+import { SiteHeader } from "@/components/SiteHeader";
 import { Reactions } from "./Reactions";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +43,12 @@ export default async function ShowPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl px-6 py-12">
-      <Link href="/shows" className="text-sm text-black/50 hover:text-black">
+      <SiteHeader />
+
+      <Link
+        href="/shows"
+        className="mt-10 inline-block text-sm text-black/50 hover:text-black"
+      >
         ← Tous les spectacles
       </Link>
 
