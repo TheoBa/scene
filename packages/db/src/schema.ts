@@ -111,3 +111,44 @@ export const reactions = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.eventId] })],
 );
+
+// ---------- Attendance ("seen") ----------
+// One row per (user, event) marking that the user attended the show. Set either
+// by the explicit "Je l'ai vu" button or as a side effect of reacting. Powers
+// the Mon Espace tab and, later, the community feed. Independent of `reactions`:
+// un-reacting does not un-mark seen.
+
+export const attendance = pgTable(
+  "attendance",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    seenAt: timestamp("seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.eventId] })],
+);
+
+// ---------- Comments (a user's review of a show) ----------
+// One editable comment per (user, event) — the user's personal note/review,
+// shown in Mon Espace and, later, to their followers in Ma communauté. Writing
+// one implies attendance.
+
+export const comments = pgTable(
+  "comments",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.eventId] })],
+);

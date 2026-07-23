@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listUpcomingShows, type ShowCard } from "@/lib/catalogue";
 import { formatDayMonth } from "@/lib/format";
 import { SiteHeader } from "@/components/SiteHeader";
+import { TabNav } from "@/components/TabNav";
 
 export const metadata = {
   title: "Spectacles à l'affiche — Scenes",
@@ -18,8 +19,9 @@ export default async function ShowsPage() {
   return (
     <div className="mx-auto min-h-screen max-w-5xl px-6 py-12">
       <SiteHeader />
+      <TabNav />
 
-      <header className="mt-12 flex items-end justify-between gap-6">
+      <header className="mt-10 flex items-end justify-between gap-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">
             Le théâtre à Paris
