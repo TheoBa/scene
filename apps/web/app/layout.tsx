@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Syne } from "next/font/google";
 import "./globals.css";
+import { SplashScreen } from "@/components/SplashScreen";
 
 // Syne — the V0 display-font direction, kept as the early design-system nod.
 const syne = Syne({
@@ -20,7 +21,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="fr" className={syne.variable}>
-      <body>{children}</body>
+      <body>
+        <SplashScreen />
+        {children}
+      </body>
     </html>
   );
 }
