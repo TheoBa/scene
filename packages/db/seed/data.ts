@@ -25,6 +25,28 @@ export interface SeedShow {
   runs: SeedRun[];
 }
 
+// Demo accounts used only to seed lively reaction counts for the POC. Stable ids
+// so reseeds don't duplicate them; marker emails (@demo.scenes.example) mark them
+// as throwaway. They have no better-auth `account` row, so they can't sign in.
+export interface SeedDemoUser {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export const seedDemoUsers: SeedDemoUser[] = [
+  { id: "demo-user-01", name: "Camille", email: "demo01@demo.scenes.example" },
+  { id: "demo-user-02", name: "Lucas", email: "demo02@demo.scenes.example" },
+  { id: "demo-user-03", name: "Inès", email: "demo03@demo.scenes.example" },
+  { id: "demo-user-04", name: "Hugo", email: "demo04@demo.scenes.example" },
+  { id: "demo-user-05", name: "Léa", email: "demo05@demo.scenes.example" },
+  { id: "demo-user-06", name: "Sofia", email: "demo06@demo.scenes.example" },
+  { id: "demo-user-07", name: "Nathan", email: "demo07@demo.scenes.example" },
+  { id: "demo-user-08", name: "Jade", email: "demo08@demo.scenes.example" },
+  { id: "demo-user-09", name: "Adam", email: "demo09@demo.scenes.example" },
+  { id: "demo-user-10", name: "Manon", email: "demo10@demo.scenes.example" },
+];
+
 export const seedShows: SeedShow[] = [
   {
     title: "Anne Baquet chante au paradis",

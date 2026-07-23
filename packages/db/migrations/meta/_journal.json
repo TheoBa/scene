@@ -22,6 +22,13 @@
       "when": 1784820056417,
       "tag": "0002_even_excalibur",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784826584464,
+      "tag": "0003_sparkling_rick_jones",
+      "breakpoints": true
     }
   ]
 }
