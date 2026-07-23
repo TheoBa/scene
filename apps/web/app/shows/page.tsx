@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listUpcomingShows } from "@/lib/catalogue";
 import { formatDayMonth } from "@/lib/format";
+import { SiteHeader } from "@/components/SiteHeader";
 
 export const metadata = {
   title: "Spectacles à l'affiche — Scenes",
@@ -15,14 +16,7 @@ export default async function ShowsPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-6 py-12">
-      <header className="flex items-baseline justify-between">
-        <Link href="/" className="font-display text-xl font-extrabold tracking-tight">
-          Scenes
-        </Link>
-        <Link href="/sign-in" className="text-sm text-black/50 hover:text-black">
-          Se connecter
-        </Link>
-      </header>
+      <SiteHeader />
 
       <h1 className="mt-10 font-display text-3xl font-extrabold tracking-tight">
         À l&apos;affiche
