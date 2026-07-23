@@ -46,7 +46,7 @@ export default async function ShowsPage() {
                     {s.name}
                   </span>
                   <span className="mt-0.5 block text-sm text-black/50">
-                    {s.nextVenue}
+                    {s.author ? `${s.author} · ${s.nextVenue}` : s.nextVenue}
                   </span>
                 </div>
                 <div className="shrink-0 text-right">

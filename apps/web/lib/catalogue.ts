@@ -5,6 +5,7 @@ import { getDb } from "./db";
 export interface ShowCard {
   slug: string;
   name: string;
+  author: string | null;
   nextStartsAt: Date; // soonest upcoming performance
   nextVenue: string;
   upcomingCount: number;
@@ -13,6 +14,11 @@ export interface ShowCard {
 export interface ShowDetail {
   name: string;
   slug: string;
+  author: string | null;
+  director: string | null;
+  tags: string[];
+  durationMinutes: number | null;
+  officialUrl: string | null;
   performances: { startsAt: Date; venue: string; address: string | null }[];
 }
 
@@ -24,6 +30,7 @@ export async function listUpcomingShows(): Promise<ShowCard[]> {
     .select({
       slug: events.slug,
       name: events.name,
+      author: events.author,
       startsAt: performances.startsAt,
       venue: venues.name,
     })
@@ -43,6 +50,7 @@ export async function listUpcomingShows(): Promise<ShowCard[]> {
       bySlug.set(r.slug, {
         slug: r.slug,
         name: r.name,
+        author: r.author,
         nextStartsAt: r.startsAt,
         nextVenue: r.venue,
         upcomingCount: 1,
@@ -58,7 +66,16 @@ export async function listUpcomingShows(): Promise<ShowCard[]> {
 // One show + its upcoming performances. null if the slug doesn't exist.
 export async function getShowBySlug(slug: string): Promise<ShowDetail | null> {
   const [event] = await getDb()
-    .select({ id: events.id, name: events.name, slug: events.slug })
+    .select({
+      id: events.id,
+      name: events.name,
+      slug: events.slug,
+      author: events.author,
+      director: events.director,
+      tags: events.tags,
+      durationMinutes: events.durationMinutes,
+      officialUrl: events.officialUrl,
+    })
     .from(events)
     .where(eq(events.slug, slug))
     .limit(1);
@@ -77,5 +94,14 @@ export async function getShowBySlug(slug: string): Promise<ShowDetail | null> {
     )
     .orderBy(asc(performances.startsAt));
 
-  return { name: event.name, slug: event.slug, performances: perfs };
+  return {
+    name: event.name,
+    slug: event.slug,
+    author: event.author,
+    director: event.director,
+    tags: event.tags,
+    durationMinutes: event.durationMinutes,
+    officialUrl: event.officialUrl,
+    performances: perfs,
+  };
 }
