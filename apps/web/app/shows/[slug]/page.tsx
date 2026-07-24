@@ -4,9 +4,11 @@ import { headers } from "next/headers";
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { getShowBySlug, getEventReactions } from "@/lib/catalogue";
+import { getUserSeen } from "@/lib/espace";
 import { formatDateTime } from "@/lib/format";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Reactions } from "./Reactions";
+import { SeenButton } from "./SeenButton";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +37,7 @@ export default async function ShowPage({
 
   const session = await auth.api.getSession({ headers: await headers() });
   const reactions = await getEventReactions(show.id, session?.user.id);
+  const seen = session ? await getUserSeen(show.id, session.user.id) : false;
 
   const MAX_DATES = 12;
   const shownDates = show.performances.slice(0, MAX_DATES);
@@ -158,9 +161,10 @@ export default async function ShowPage({
 
       <section className="mt-12">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-black/40">
-          Réactions
+          Votre avis
         </h2>
-        <div className="mt-4">
+        <div className="mt-4 space-y-4">
+          <SeenButton slug={slug} initialSeen={seen} signedIn={!!session} />
           <Reactions
             slug={slug}
             counts={reactions.counts}
