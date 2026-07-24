@@ -132,6 +132,25 @@ export const attendance = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.eventId] })],
 );
 
+// ---------- Follows (one-way social graph) ----------
+// `followerId` follows `followeeId`. One-way (not mutual) — no accept step.
+// Powers Ma communauté: the feed of comments from people you follow. Self-follow
+// is rejected in-app. Mutual-accept can be layered on later without a reshape.
+
+export const follows = pgTable(
+  "follows",
+  {
+    followerId: text("follower_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    followeeId: text("followee_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.followerId, t.followeeId] })],
+);
+
 // ---------- Comments (a user's review of a show) ----------
 // One editable comment per (user, event) — the user's personal note/review,
 // shown in Mon Espace and, later, to their followers in Ma communauté. Writing
