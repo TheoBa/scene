@@ -8,6 +8,7 @@ import { getUserSeen } from "@/lib/espace";
 import { formatDateTime } from "@/lib/format";
 import { SiteHeader } from "@/components/SiteHeader";
 import { AvisSection } from "./AvisSection";
+import { ReactionHistogram } from "./ReactionHistogram";
 
 export const dynamic = "force-dynamic";
 
@@ -125,37 +126,41 @@ export default async function ShowPage({
         </div>
       </section>
 
-      <section className="mt-12">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-black/40">
-          Prochaines dates
-        </h2>
-        {show.performances.length === 0 ? (
-          <p className="mt-4 text-black/50">Aucune date à venir.</p>
-        ) : (
-          <>
-            <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-              {shownDates.map((p, i) => (
-                <li
-                  key={i}
-                  className="flex items-center justify-between gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-black/5"
-                >
-                  <span className="font-medium capitalize">
-                    {formatDateTime(p.startsAt)}
-                  </span>
-                  <span className="text-right text-sm text-black/50">
-                    {p.venue}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            {moreDates > 0 && (
-              <p className="mt-3 text-sm text-black/40">
-                + {moreDates} autre{moreDates > 1 ? "s" : ""} date
-                {moreDates > 1 ? "s" : ""} à venir
-              </p>
-            )}
-          </>
-        )}
+      <section className="mt-12 grid gap-8 lg:grid-cols-[18rem_1fr]">
+        <ReactionHistogram counts={reactions.counts} />
+
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-black/40">
+            Prochaines dates
+          </h2>
+          {show.performances.length === 0 ? (
+            <p className="mt-4 text-black/50">Aucune date à venir.</p>
+          ) : (
+            <>
+              <ul className="mt-4 grid gap-2">
+                {shownDates.map((p, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center justify-between gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-black/5"
+                  >
+                    <span className="font-medium capitalize">
+                      {formatDateTime(p.startsAt)}
+                    </span>
+                    <span className="text-right text-sm text-black/50">
+                      {p.venue}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {moreDates > 0 && (
+                <p className="mt-3 text-sm text-black/40">
+                  + {moreDates} autre{moreDates > 1 ? "s" : ""} date
+                  {moreDates > 1 ? "s" : ""} à venir
+                </p>
+              )}
+            </>
+          )}
+        </div>
       </section>
 
       <section className="mt-12">
@@ -163,13 +168,27 @@ export default async function ShowPage({
           Votre avis
         </h2>
         <div className="mt-4">
-          <AvisSection
-            slug={slug}
-            initialSeen={seen}
-            counts={reactions.counts}
-            mine={reactions.mine}
-            signedIn={!!session}
-          />
+          {session ? (
+            <AvisSection
+              slug={slug}
+              initialSeen={seen}
+              mine={reactions.mine}
+              signedIn
+            />
+          ) : (
+            <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5">
+              <p className="text-black/70">
+                Vous avez vu la pièce ? Votre avis nous intéresse —{" "}
+                <Link
+                  href="/sign-in"
+                  className="font-medium text-[var(--accent)] hover:underline"
+                >
+                  connectez-vous
+                </Link>{" "}
+                pour nous le faire savoir&nbsp;!
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
