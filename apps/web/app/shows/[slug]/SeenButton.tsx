@@ -1,23 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setSeen } from "./actions";
 
 // "Je l'ai vu" toggle. Logged-out clicks route to sign-in; otherwise it
-// optimistically flips and persists. Reacting also marks a show seen elsewhere.
+// optimistically flips and persists. The seen state is owned by AvisSection so
+// that reacting can also flip it — reacting marks a show seen elsewhere.
 export function SeenButton({
   slug,
-  initialSeen,
+  seen,
+  onSeenChange,
   signedIn,
 }: {
   slug: string;
-  initialSeen: boolean;
+  seen: boolean;
+  onSeenChange: (seen: boolean) => void;
   signedIn: boolean;
 }) {
   const router = useRouter();
-  const [seen, setSeenState] = useState(initialSeen);
   const [pending, startTransition] = useTransition();
 
   function toggle() {
@@ -26,10 +28,10 @@ export function SeenButton({
       return;
     }
     const next = !seen;
-    setSeenState(next);
+    onSeenChange(next);
     startTransition(async () => {
       const res = await setSeen(slug, next);
-      if (!res.ok) setSeenState(!next);
+      if (!res.ok) onSeenChange(!next);
     });
   }
 

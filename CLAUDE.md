@@ -57,8 +57,17 @@ Deploys happen by pushing to `main`; Coolify rebuilds from the Dockerfiles. In C
 ## Git workflow
 
 - **`main`** — release branch. Prod always serves from `main`. Only `dev` merges into it — a `dev` → `main` merge **is** a release.
-- **`dev`** — long-lived integration branch. All day-to-day work lands here.
+- **`dev`** — long-lived integration branch. Features are merged in via PR; **never commit directly on `dev`**.
 - **`feature/xxx`** — short-lived, one feature per branch. Branch from `dev`, PR back to `dev`.
+
+**Non-negotiable rule — every change follows this, no exceptions unless Théo says otherwise in the moment:**
+
+1. **Cut a `feature/xxx` branch off `dev` BEFORE the first commit.** Never commit while `HEAD` is on `dev` (or `main`). Committing on `dev` and branching afterwards is wrong — branch first.
+2. **Commit to that feature branch.**
+3. **Push the feature branch** (`git push origin feature/xxx`).
+4. **Open a PR from `feature/xxx` into `dev`** with `gh pr create --base dev`.
+
+This applies to _any_ new work — features, fixes, docs, chores. When in doubt, make a branch. Do this without being asked each time; "commit this" always means "on a feature branch, then PR into `dev`".
 
 Commit message format: `type(scope): description`
 Common types: `feat`, `fix`, `chore`, `docs`, `infra`, `refactor`.
