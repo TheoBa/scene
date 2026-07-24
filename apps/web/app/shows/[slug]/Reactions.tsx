@@ -27,11 +27,15 @@ export function Reactions({
   counts: initialCounts,
   mine: initialMine,
   signedIn,
+  onReaction,
 }: {
   slug: string;
   counts: Counts;
   mine: ReactionKind | null;
   signedIn: boolean;
+  // Called with the user's reaction after each toggle (null once un-reacted),
+  // so a parent can reflect that reacting marks the show seen.
+  onReaction?: (mine: ReactionKind | null) => void;
 }) {
   const router = useRouter();
   const [counts, setCounts] = useState(initialCounts);
@@ -48,15 +52,18 @@ export function Reactions({
     const optimistic = applyToggle(counts, mine, kind);
     setCounts(optimistic.counts);
     setMine(optimistic.mine);
+    onReaction?.(optimistic.mine);
 
     startTransition(async () => {
       const res = await setReaction(slug, kind);
       if (res.ok) {
         setCounts(res.counts);
         setMine(res.mine);
+        onReaction?.(res.mine);
       } else {
         setCounts(prev.counts);
         setMine(prev.mine);
+        onReaction?.(prev.mine);
       }
     });
   }

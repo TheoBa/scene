@@ -7,8 +7,7 @@ import { getShowBySlug, getEventReactions } from "@/lib/catalogue";
 import { getUserSeen } from "@/lib/espace";
 import { formatDateTime } from "@/lib/format";
 import { SiteHeader } from "@/components/SiteHeader";
-import { Reactions } from "./Reactions";
-import { SeenButton } from "./SeenButton";
+import { AvisSection } from "./AvisSection";
 
 export const dynamic = "force-dynamic";
 
@@ -163,10 +162,10 @@ export default async function ShowPage({
         <h2 className="text-sm font-semibold uppercase tracking-wide text-black/40">
           Votre avis
         </h2>
-        <div className="mt-4 space-y-4">
-          <SeenButton slug={slug} initialSeen={seen} signedIn={!!session} />
-          <Reactions
+        <div className="mt-4">
+          <AvisSection
             slug={slug}
+            initialSeen={seen}
             counts={reactions.counts}
             mine={reactions.mine}
             signedIn={!!session}
