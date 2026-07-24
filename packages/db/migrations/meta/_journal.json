@@ -36,6 +36,13 @@
       "when": 1784838159672,
       "tag": "0004_nebulous_pandemic",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784901677101,
+      "tag": "0005_material_shadowcat",
+      "breakpoints": true
     }
   ]
 }

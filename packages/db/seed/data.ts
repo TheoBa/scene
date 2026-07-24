@@ -25,26 +25,57 @@ export interface SeedShow {
   runs: SeedRun[];
 }
 
-// Demo accounts used only to seed lively reaction counts for the POC. Stable ids
-// so reseeds don't duplicate them; marker emails (@demo.scenes.example) mark them
+// Demo accounts used to seed lively reaction counts, a searchable/followable
+// community, and a populated Ma communauté feed for the POC. Stable ids so
+// reseeds don't duplicate them; marker emails (@demo.scenes.example) mark them
 // as throwaway. They have no better-auth `account` row, so they can't sign in.
+// `pseudo`/`genres` give them a real profile (findable by pseudo, follow-able).
 export interface SeedDemoUser {
   id: string;
   name: string;
   email: string;
+  pseudo: string;
+  genres: string[];
 }
 
 export const seedDemoUsers: SeedDemoUser[] = [
-  { id: "demo-user-01", name: "Camille", email: "demo01@demo.scenes.example" },
-  { id: "demo-user-02", name: "Lucas", email: "demo02@demo.scenes.example" },
-  { id: "demo-user-03", name: "Inès", email: "demo03@demo.scenes.example" },
-  { id: "demo-user-04", name: "Hugo", email: "demo04@demo.scenes.example" },
-  { id: "demo-user-05", name: "Léa", email: "demo05@demo.scenes.example" },
-  { id: "demo-user-06", name: "Sofia", email: "demo06@demo.scenes.example" },
-  { id: "demo-user-07", name: "Nathan", email: "demo07@demo.scenes.example" },
-  { id: "demo-user-08", name: "Jade", email: "demo08@demo.scenes.example" },
-  { id: "demo-user-09", name: "Adam", email: "demo09@demo.scenes.example" },
-  { id: "demo-user-10", name: "Manon", email: "demo10@demo.scenes.example" },
+  { id: "demo-user-01", name: "Camille", email: "demo01@demo.scenes.example", pseudo: "camille.p", genres: ["classique", "drame"] },
+  { id: "demo-user-02", name: "Lucas", email: "demo02@demo.scenes.example", pseudo: "lucas.m", genres: ["comédie", "absurde"] },
+  { id: "demo-user-03", name: "Inès", email: "demo03@demo.scenes.example", pseudo: "ines.r", genres: ["musical", "romance"] },
+  { id: "demo-user-04", name: "Hugo", email: "demo04@demo.scenes.example", pseudo: "hugo.d", genres: ["contemporain", "historique"] },
+  { id: "demo-user-05", name: "Léa", email: "demo05@demo.scenes.example", pseudo: "lea.b", genres: ["comédie", "romance"] },
+  { id: "demo-user-06", name: "Sofia", email: "demo06@demo.scenes.example", pseudo: "sofia.k", genres: ["classique", "poétique"] },
+  { id: "demo-user-07", name: "Nathan", email: "demo07@demo.scenes.example", pseudo: "nathan.l", genres: ["drame", "thriller"] },
+  { id: "demo-user-08", name: "Jade", email: "demo08@demo.scenes.example", pseudo: "jade.v", genres: ["musical", "cabaret"] },
+  { id: "demo-user-09", name: "Adam", email: "demo09@demo.scenes.example", pseudo: "adam.t", genres: ["contemporain", "absurde"] },
+  { id: "demo-user-10", name: "Manon", email: "demo10@demo.scenes.example", pseudo: "manon.g", genres: ["romance", "historique"] },
+];
+
+// Demo reviews shown in Ma communauté once you follow a demo user. `slug` must
+// match a seeded show's slug (slugify(title)). Inserted with attendance so the
+// author reads as having seen the show. Kept short and in-character.
+export interface SeedDemoComment {
+  userId: string;
+  slug: string;
+  body: string;
+}
+
+export const seedDemoComments: SeedDemoComment[] = [
+  { userId: "demo-user-01", slug: "les-miserables", body: "Une fresque qui prend aux tripes. La troupe est habitée du début à la fin." },
+  { userId: "demo-user-01", slug: "crime-et-chatiment", body: "L'adaptation musicale m'a surprise — tendue, moderne, jamais scolaire." },
+  { userId: "demo-user-02", slug: "la-cantatrice-chauve", body: "Toujours aussi jubilatoire. Ionesco n'a pas pris une ride, on rit de l'absurde de bout en bout." },
+  { userId: "demo-user-02", slug: "la-lecon", body: "Glaçant et drôle à la fois. La montée en tension est parfaitement dosée." },
+  { userId: "demo-user-03", slug: "odyssee-la-conference-musicale", body: "Malin et enlevé, les enfants comme les parents accrochent. Les chansons restent en tête." },
+  { userId: "demo-user-03", slug: "sand-chopin", body: "Un moment suspendu, porté par la musique. Très belle soirée." },
+  { userId: "demo-user-04", slug: "le-cercle-des-poetes-disparus", body: "J'avais peur de la comparaison au film — la scène lui rend justice. Bouleversant." },
+  { userId: "demo-user-04", slug: "les-justes", body: "Camus au plateau, ça claque. Le texte résonne encore aujourd'hui." },
+  { userId: "demo-user-05", slug: "l-embarras-du-choix", body: "On a ri sans arrêt, et décider de la suite depuis la salle est un vrai plaisir." },
+  { userId: "demo-user-05", slug: "dernier-coup-de-ciseaux", body: "Interactif et hilarant, deux fins possibles selon le public. On y retournerait." },
+  { userId: "demo-user-06", slug: "memoires-d-hadrien", body: "Un seul en scène d'une densité rare. On sort grandi." },
+  { userId: "demo-user-07", slug: "oublie-moi", body: "J'ai pleuré. Sujet difficile traité avec une immense délicatesse." },
+  { userId: "demo-user-08", slug: "dolores", body: "Le flamenco donne une énergie folle à la vengeance. Envoûtant." },
+  { userId: "demo-user-09", slug: "bel-ami", body: "Maupassant mordant, l'ambition qui dévore. Rythme impeccable." },
+  { userId: "demo-user-10", slug: "juliette-victor-hugo-mon-fol-amour", body: "Une correspondance amoureuse magnifiquement incarnée. Romantique à souhait." },
 ];
 
 export const seedShows: SeedShow[] = [

@@ -2,8 +2,23 @@
 // Expands each show's weekly schedule (times per weekday over a run range, minus
 // relâche) into concrete `performances`. Idempotent. Needs DATABASE_URL.
 //   npm run db:seed            (from repo root)
-import { createDb, events, performances, reactions, user, venues } from "../src/index.js";
-import { seedShows, seedDemoUsers, type Weekday } from "./data.js";
+import {
+  attendance,
+  comments,
+  createDb,
+  events,
+  performances,
+  profiles,
+  reactions,
+  user,
+  venues,
+} from "../src/index.js";
+import {
+  seedShows,
+  seedDemoUsers,
+  seedDemoComments,
+  type Weekday,
+} from "./data.js";
 
 // Kept in sync with apps/web/lib/reactions.ts (packages/db must not import from
 // the web app). Used only to seed demo reaction counts.
@@ -108,21 +123,28 @@ async function main(): Promise<void> {
 
   let perfCount = 0;
   let reactionCount = 0;
+  let commentCount = 0;
 
   await db.transaction(async (tx) => {
-    // Clear catalogue in FK order (performances → events/venues). Users untouched.
+    // Non-destructive: upsert venues (by name) and events (by slug) so existing
+    // event ids — and the real user reactions / attendance / comments that FK to
+    // them — survive a reseed. Performances are derived from the schedule and
+    // carry no user data, so they alone are cleared and rebuilt.
     await tx.delete(performances);
-    await tx.delete(events);
-    await tx.delete(venues);
 
-    // Distinct venues (already normalised in data.ts) → name → id map.
+    // Distinct venues (already normalised in data.ts). Upsert by unique name,
+    // then read them all back into a name → id map.
     const venueNames = [...new Set(seedShows.map((s) => s.venue))];
-    const venueId = new Map<string, string>();
-    for (const name of venueNames) {
-      const [row] = await tx.insert(venues).values({ name }).returning({ id: venues.id });
-      venueId.set(name, row.id);
-    }
+    await tx
+      .insert(venues)
+      .values(venueNames.map((name) => ({ name })))
+      .onConflictDoNothing();
+    const venueRows = await tx
+      .select({ id: venues.id, name: venues.name })
+      .from(venues);
+    const venueId = new Map(venueRows.map((v) => [v.name, v.id]));
 
+    // Events keyed by slug — order follows seedShows for stable demo spread.
     const eventIds: string[] = [];
     for (const show of seedShows) {
       const slug = slugify(show.title);
@@ -137,6 +159,18 @@ async function main(): Promise<void> {
           durationMinutes: show.durationMinutes ?? null,
           imageUrl: POSTER_SLUGS.has(slug) ? `${slug}.jpg` : null,
           officialUrl: show.officialUrl ?? null,
+        })
+        .onConflictDoUpdate({
+          target: events.slug,
+          set: {
+            name: show.title,
+            author: show.author ?? null,
+            director: show.director ?? null,
+            tags: show.tags,
+            durationMinutes: show.durationMinutes ?? null,
+            imageUrl: POSTER_SLUGS.has(slug) ? `${slug}.jpg` : null,
+            officialUrl: show.officialUrl ?? null,
+          },
         })
         .returning({ id: events.id });
       eventIds.push(event.id);
@@ -166,10 +200,15 @@ async function main(): Promise<void> {
         perfCount += rows.length;
       }
     }
+    const idBySlug = new Map(
+      seedShows.map((s, i) => [slugify(s.title), eventIds[i]]),
+    );
 
-    // Demo reactions — stable throwaway users spread across shows so counts look
-    // alive. onConflictDoNothing keeps reseeds from duplicating the users; old
-    // reactions were cascade-deleted when the events were cleared above.
+    // Demo community — stable throwaway users with real profiles (findable by
+    // pseudo, follow-able) plus reactions and reviews so the discovery counts and
+    // the Ma communauté feed look alive. All inserts are additive
+    // (onConflictDoNothing), so reseeds never duplicate and real signups are
+    // untouched. Demo users have no `account` row, so they can't sign in.
     await tx
       .insert(user)
       .values(
@@ -178,6 +217,19 @@ async function main(): Promise<void> {
           name: u.name,
           email: u.email,
           emailVerified: true,
+        })),
+      )
+      .onConflictDoNothing();
+
+    await tx
+      .insert(profiles)
+      .values(
+        seedDemoUsers.map((u) => ({
+          userId: u.id,
+          pseudo: u.pseudo,
+          frequency: "monthly",
+          favoriteGenres: u.genres,
+          onboardedAt: now,
         })),
       )
       .onConflictDoNothing();
@@ -193,15 +245,38 @@ async function main(): Promise<void> {
       });
     });
     if (reactionRows.length) {
-      await tx.insert(reactions).values(reactionRows);
+      await tx.insert(reactions).values(reactionRows).onConflictDoNothing();
       reactionCount = reactionRows.length;
+    }
+
+    // Reviews (only for known slugs) — the feed content.
+    const commentRows = seedDemoComments
+      .map((c) => ({ userId: c.userId, eventId: idBySlug.get(c.slug), body: c.body }))
+      .filter((c): c is { userId: string; eventId: string; body: string } =>
+        Boolean(c.eventId),
+      );
+    if (commentRows.length) {
+      await tx.insert(comments).values(commentRows).onConflictDoNothing();
+      commentCount = commentRows.length;
+    }
+
+    // Attendance for every demo reaction or review, so demo profiles read as
+    // having seen those shows (reacting/commenting implies seen).
+    const seenPairs = new Map<string, { userId: string; eventId: string }>();
+    for (const r of reactionRows) seenPairs.set(`${r.userId}|${r.eventId}`, r);
+    for (const c of commentRows) seenPairs.set(`${c.userId}|${c.eventId}`, c);
+    if (seenPairs.size) {
+      await tx
+        .insert(attendance)
+        .values([...seenPairs.values()])
+        .onConflictDoNothing();
     }
   });
 
   console.log(
     `[seed] done — ${new Set(seedShows.map((s) => s.venue)).size} venues, ` +
       `${seedShows.length} shows, ${perfCount} upcoming performances (${HORIZON_DAYS}d horizon), ` +
-      `${reactionCount} demo reactions`,
+      `${reactionCount} demo reactions, ${commentCount} demo reviews`,
   );
 }
 
