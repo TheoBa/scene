@@ -11,6 +11,15 @@ a strong base. Sister docs: `technical-roadmap.md`, `scenes-knowledge-base.md`
 > catch** that makes it a different kind of source from theatre.info. Field-level
 > details marked _(to confirm)_ must be checked against a live call.
 
+> **Decision (2026-07-28):** Ticketmaster is a **throwaway kickstart, not a
+> long-term source.** Its purpose is to seed an initial Paris catalogue so we can
+> **apply for the Awin / France Billet affiliate partnership** — a chicken-and-egg
+> problem, since approval typically needs a live catalogue to point at. We expect
+> to **drop it by launch**, once theatre.info (canonical, open) and the Awin feed
+> (revenue) are in place. This deliberately sidesteps the §2 "store forever" ToS
+> concern: we're bootstrapping, not building a permanent mirror. See the decision
+> log in `scenes-knowledge-base.md`.
+
 ---
 
 ## 1. TL;DR — is this a good fit?
