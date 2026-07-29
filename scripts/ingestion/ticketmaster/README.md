@@ -32,24 +32,28 @@ theobadoz@Mac ticketmaster % pip install -r requirements.txt
 theobadoz@Mac ticketmaster % python pull.py
 ```
 
-Defaults: Paris, `countryCode=FR`, `classificationName=Theatre` (the genre, to
-dodge the noisy "Arts & Theatre" segment), today → +90 days in 7-day windows.
-Raw responses land in `raw/` (gitignored), one file per API page.
+Defaults: Paris, `countryCode=FR`, and the **theatre `genreId` set** (Théâtre,
+Théâtre pour enfants, Théâtre - Divers, Humour, Marionettes — dodging the noisy
+`Culturel`/museum genre), today → +90 days in 7-day windows. Raw responses land in
+`raw/` (gitignored), one file per API page. Any window exceeding the 1000-item
+deep-paging cap is **auto-bisected** until each slice fits — no misses, no tuning.
 
 Useful flags:
 
 ```
 --start 2026-08-01 --end 2026-12-31   # sweep window
---window-days 3                        # narrower windows if you hit the cap
---classification "Arts & Theatre"      # widen to the whole segment
---classification ""                    # no classification filter at all
+--window-days 3                        # smaller starting windows (bisection handles the rest)
+--genre-ids KnvZfZ7v7l1,KnvZfZ7v7na    # Théâtre + enfants only (drop café-théâtre)
+--genre-ids ""                          # no genre filter (whole segment — noisy)
 --venue-ids KovZ917A...,KovZ...         # most precise: pull only these TM venues
 ```
 
-**Success:** per-window lines like `2026-08-01 → 2026-08-08: 42 events` and a
-final `Done. N event rows ...`. A `⚠ ... > 1000 deep-paging cap` line means that
-window had more events than the API will page through — re-run it with a smaller
-`--window-days` or a tighter filter, or those events are missed.
+See `docs/ingestion_ticketmaster.md` §4.5 for the genreId table.
+
+**Success:** per-window lines like `2026-08-01→2026-08-08: 539 events`, `... > cap
+— splitting` for dense weeks, and a final `Done. N event rows ...`. A `⚠ ...
+1-day floor` line (rare) means a single day still exceeded the cap — tighten
+`--genre-ids`/`--venue-ids` for that period.
 
 ## 2. Profile with PySpark
 

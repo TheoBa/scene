@@ -41,6 +41,19 @@ MAX_PAGES = 1000 // PAGE_SIZE  # deep-paging cap: never request beyond item 1000
 MIN_INTERVAL_S = 0.25     # < 5 req/s (with margin)
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
+# Segment "Arts et Théâtre" (KZFzniwnSyZfZ7v7na) is noisy — its "Culturel" genre
+# is museum exhibitions (~75% of Paris results). Filter by genreId instead. These
+# are the theatre-relevant genres (resolved live 2026-07-29, locale=fr); ~539
+# events/week in Paris, safely under the 1000-item cap. See docs/ingestion_ticketmaster.md.
+GENRES = {
+    "KnvZfZ7v7l1": "Théâtre",
+    "KnvZfZ7v7na": "Théâtre pour enfants",
+    "KnvZfZ7v7ld": "Théâtre - Divers",
+    "KnvZfZ7vAe1": "Humour",            # café-théâtre / one-man-show — core Paris
+    "KnvZfZ7v7lF": "Marionettes",
+}
+DEFAULT_GENRE_IDS = ",".join(GENRES)
+
 
 def load_key() -> str:
     # .env lives at the repo root; load it regardless of cwd.
@@ -79,49 +92,73 @@ def fetch_page(params: dict) -> dict:
     sys.exit("Giving up after repeated rate-limit/5xx responses.")
 
 
-def sweep_window(key: str, args, win_start: datetime, win_end: datetime,
-                 out_dir: Path) -> tuple[int, bool]:
-    """Page through one date window. Returns (events_saved, hit_cap)."""
+def window_params(key: str, args, win_start: datetime, win_end: datetime) -> dict:
     base = {
         "apikey": key,
         "countryCode": args.country,
         "locale": args.locale,
-        "size": PAGE_SIZE,
         "sort": "date,asc",
         "startDateTime": iso_z(win_start),
         "endDateTime": iso_z(win_end),
     }
     if args.city:
         base["city"] = args.city
+    if args.genre_ids:
+        base["genreId"] = args.genre_ids  # theatre genres — dodges the Culturel noise
     if args.classification:
         base["classificationName"] = args.classification
     if args.venue_ids:
         base["venueId"] = args.venue_ids  # comma-separated, precise + low-noise
+    return base
 
-    saved, hit_cap = 0, False
-    tag = win_start.strftime("%Y%m%d")
+
+def count_window(base: dict) -> int:
+    """Cheap size=1 request → totalElements, to decide whether to split."""
+    data = fetch_page({**base, "size": 1, "page": 0})
+    time.sleep(MIN_INTERVAL_S)
+    return data.get("page", {}).get("totalElements", 0)
+
+
+def save_window(base: dict, tag: str, out_dir: Path) -> int:
+    """Page through a window known to be within the cap; save raw pages."""
+    saved = 0
     for page in range(MAX_PAGES):
-        params = {**base, "page": page}
-        data = fetch_page(params)
+        data = fetch_page({**base, "size": PAGE_SIZE, "page": page})
         time.sleep(MIN_INTERVAL_S)
-
         page_info = data.get("page", {})
-        total = page_info.get("totalElements", 0)
         events = data.get("_embedded", {}).get("events", [])
-
-        # Persist the raw response verbatim, one file per page.
         (out_dir / f"events_{tag}_p{page}.json").write_text(
             json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         saved += len(events)
-
-        if page == 0 and total > 1000:
-            hit_cap = True
-            print(f"  ⚠ window {tag}: {total} events > 1000 deep-paging cap — "
-                  f"narrow --window-days or add --classification/--venue-ids")
         if not events or (page + 1) >= page_info.get("totalPages", 0):
             break
-    return saved, hit_cap
+    return saved
+
+
+def process_window(key: str, args, win_start: datetime, win_end: datetime,
+                   out_dir: Path) -> tuple[int, int]:
+    """Adaptive: bisect any window over the 1000-item cap until each slice fits.
+    Returns (events_saved, uncoverable_windows)."""
+    base = window_params(key, args, win_start, win_end)
+    total = count_window(base)
+    days = (win_end - win_start).days
+    label = f"{win_start:%Y-%m-%d}→{win_end:%Y-%m-%d}"
+
+    if total > 1000 and days > 1:
+        mid = win_start + timedelta(days=days // 2)  # days>1 ⇒ mid strictly inside
+        print(f"  {label}: {total} > cap — splitting")
+        s1, u1 = process_window(key, args, win_start, mid, out_dir)
+        s2, u2 = process_window(key, args, mid, win_end, out_dir)
+        return s1 + s2, u1 + u2
+
+    tag = win_start.strftime("%Y%m%d")
+    saved = save_window(base, tag, out_dir)
+    if total > 1000:  # 1-day floor still over cap — implausible for Paris theatre
+        print(f"  ⚠ {label}: {total} > cap at 1-day floor — some events missed")
+        return saved, 1
+    print(f"  {label}: {saved} events")
+    return saved, 0
 
 
 def main() -> None:
@@ -132,13 +169,17 @@ def main() -> None:
     p.add_argument("--end", default=(today + timedelta(days=90)).strftime("%Y-%m-%d"),
                    help="exclusive window end, YYYY-MM-DD (default: +90d)")
     p.add_argument("--window-days", type=int, default=7,
-                   help="date-partition size in days (default: 7)")
+                   help="initial date-partition size in days (default: 7); windows "
+                        "over the 1000-item cap are auto-bisected")
     p.add_argument("--city", default="Paris")
     p.add_argument("--country", default="FR")
     p.add_argument("--locale", default="fr")
-    p.add_argument("--classification", default="Theatre",
-                   help='classificationName filter; "" to disable, '
-                        '"Arts & Theatre" to widen to the noisy segment')
+    p.add_argument("--genre-ids", default=DEFAULT_GENRE_IDS,
+                   help=f"comma-separated TM genreIds (default: theatre genres "
+                        f"{DEFAULT_GENRE_IDS}); \"\" to disable")
+    p.add_argument("--classification", default="",
+                   help='optional classificationName filter (loose keyword match; '
+                        'prefer --genre-ids for precision)')
     p.add_argument("--venue-ids", default="",
                    help="comma-separated TM venueIds — most precise filter")
     p.add_argument("--out", default=str(Path(__file__).parent / "raw"))
@@ -151,24 +192,23 @@ def main() -> None:
     start = datetime.strptime(args.start, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     end = datetime.strptime(args.end, "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
-    print(f"Sweeping {args.start}→{args.end} in {args.window_days}d windows | "
-          f"city={args.city} country={args.country} "
-          f"classification={args.classification or '(none)'}")
+    genre_names = ", ".join(GENRES.get(g, g) for g in args.genre_ids.split(",") if g)
+    print(f"Sweeping {args.start}→{args.end} in {args.window_days}d windows "
+          f"(auto-bisected past the cap) | city={args.city} "
+          f"country={args.country} | genres=[{genre_names or '(all)'}]")
 
-    total_saved, capped_windows, cursor = 0, 0, start
+    total_saved, uncoverable, cursor = 0, 0, start
     while cursor < end:
         win_end = min(cursor + timedelta(days=args.window_days), end)
-        saved, hit_cap = sweep_window(key, args, cursor, win_end, out_dir)
-        print(f"  {cursor:%Y-%m-%d} → {win_end:%Y-%m-%d}: {saved} events")
+        saved, unc = process_window(key, args, cursor, win_end, out_dir)
         total_saved += saved
-        capped_windows += int(hit_cap)
+        uncoverable += unc
         cursor = win_end
 
     print(f"\nDone. {total_saved} event rows across raw JSON in {out_dir}")
-    if capped_windows:
-        print(f"⚠ {capped_windows} window(s) exceeded the 1000-item cap — some "
-              f"events were missed there. Re-run those with a smaller "
-              f"--window-days or a tighter filter.")
+    if uncoverable:
+        print(f"⚠ {uncoverable} single-day window(s) still exceeded the cap — "
+              f"unusual; consider a tighter --genre-ids or --venue-ids there.")
     print("Next: python profile_spark.py")
 
 

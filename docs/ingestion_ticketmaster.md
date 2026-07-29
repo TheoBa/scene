@@ -184,19 +184,57 @@ map):
 - `images[]` → `events.imageUrl`,
 - `priceRanges[]`, `sales` → future ticketing metadata.
 
-### 4.5 The "Arts & Theatre" segment is noisy — filter by genre
+### 4.5 The "Arts & Theatre" segment is noisy — filter by `genreId`
 
-Confirmed live: `classificationName=Arts & Theatre` returned
-`CITE DES ENFANTS 2-6 ANS` (a kids' science-museum attraction) as its top Paris
-result. The **segment bundles genres we don't want** (Family, Museum/Attraction,
-Comedy, Dance, etc.). So for a clean theatre catalogue:
-- filter to the **Theatre genre**, not just the segment — resolve its `genreId`
-  live via `/discovery/v2/classifications.json` (or `classificationName=Theatre`),
-  and _(to confirm)_ pin the exact genreId; and/or
-- constrain by a **Paris theatre-venue whitelist** (we already maintain a
-  ~200-theatre list — see the venues-sheet memory) via `venueId`, which is the
-  most precise filter and also solves dedup against theatre.info.
-- Expect to still hand-review edge cases; TM's classification is coarse.
+Confirmed live (2026-07-29): `classificationName` is a **loose keyword match that
+does NOT narrow to a genre** — passing `Theatre` still returned the whole segment
+(`Arts et Théâtre`, 2246 events/week in Paris), of which **~75% was the `Culturel`
+genre — museum exhibitions** (Musée du Quai Branly, Musée Maillol), not theatre.
+Fix: filter by **`genreId`** (comma-separated for multiple). Resolved genre ids
+(segment `Arts et Théâtre` = `KZFzniwnSyZfZ7v7na`, locale `fr`):
+
+| Genre | genreId | keep? |
+|---|---|---|
+| Théâtre | `KnvZfZ7v7l1` | ✅ |
+| Théâtre pour enfants | `KnvZfZ7v7na` | ✅ |
+| Théâtre - Divers | `KnvZfZ7v7ld` | ✅ |
+| Humour (café-théâtre / one-man-show) | `KnvZfZ7vAe1` | ✅ (see scope Q) |
+| Marionettes | `KnvZfZ7v7lF` | ✅ |
+| **Culturel (museums)** | `KnvZfZ7v7nE` | ❌ noise |
+| Danse `KnvZfZ7v7nI`, Classique `KnvZfZ7v7nJ`, Variété `KnvZfZ7v7lJ`, Magie `KnvZfZ7v7lv`, Cirque `KnvZfZ7v7n1`, Opéra `KnvZfZ7v7lk` | — | scope-dependent |
+
+The theatre-genre set is `pull.py`'s default (`DEFAULT_GENRE_IDS`). Even more
+precise, when we want it: a **Paris theatre-venue whitelist** via `venueId` (we
+maintain a ~200-theatre list — see the venues-sheet memory), which also pre-solves
+dedup against theatre.info.
+
+### 4.6 Phase-A pull results (2026-07-29)
+
+First real sweep — **Paris, 90 days (2026-07-29 → 10-27), theatre genres**:
+
+- **9,726 distinct events.** Genre split: **Humour 5,065 · Théâtre 3,618 ·
+  Théâtre pour enfants 1,043** (Théâtre-Divers / Marionettes returned 0 this
+  window). Note Humour (comedy clubs / café-théâtre) is **>50%** of the volume.
+- **Field coverage is excellent — 0% nulls** on `id, name, url, dates.start.*,
+  venue name/city/postalCode, classification`. Confirmed mappable fields:
+  `url` (ticket link), `dates.start.{dateTime,localDate,localTime}` + flags
+  `dateTBA/dateTBD/noSpecificTime`, `dates.spanMultipleDays`, `dates.status.code`;
+  `_embedded.venues[0].{id,name,address.line1,city.name,postalCode,
+  country.countryCode,location.latitude,location.longitude,timezone,url}`;
+  `_embedded.attractions[]` (performers + `externalLinks`); `images[]`;
+  `sales.public.{startDateTime,endDateTime}`; `promoter(s)`.
+- **Deep-paging cap is seasonal:** summer weeks ~500/wk fit a 7-day window, but the
+  Sept/Oct *rentrée* pushes some weeks >1000. `pull.py` handles this by
+  **auto-bisecting** any window over the cap until each slice fits — no manual
+  tuning, no silent misses.
+- **TM has duplicate listings:** the `(lower(name)|venue|localDate)` dedup key
+  shows collisions of up to **6 rows** for the same show+venue+date (e.g. "Paname
+  Comedy Club" @ Le Paname Art Café). So dedup must collapse these — and it also
+  means TM's raw event count overstates the real number of distinct shows.
+
+**Open scope question for Théo:** **Humour** (stand-up / comedy clubs) is >50% of
+the pulled catalogue. Is café-théâtre in scope for Scenes' positioning, or should
+we drop `KnvZfZ7vAe1` and keep Théâtre + Théâtre pour enfants (≈4.7k events)?
 
 ### 4.4 Example requests
 
