@@ -171,3 +171,21 @@ export const comments = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.eventId] })],
 );
+
+// ---------- Dev notes (in-app feedback / idea capture) ----------
+// The "dev mode" widget: founders drop bugs and feature ideas straight from the
+// page they're on. Not user-facing — the widget only renders for allowlisted
+// emails (DEV_FEEDBACK_EMAILS). Reviewed and triaged at /dev/notes, then moved
+// into the real backlog. `category` and `status` are validated in-app
+// (lib/dev-notes.ts). `userId` is nullable so a note survives if the author's
+// account is later deleted.
+
+export const devNotes = pgTable("dev_notes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  body: text("body").notNull(),
+  category: text("category").notNull().default("idea"), // bug | idea | other
+  path: text("path"), // page the note was dropped from (pathname + query)
+  status: text("status").notNull().default("new"), // new | processed
+  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

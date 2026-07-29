@@ -43,6 +43,13 @@
       "when": 1784901677101,
       "tag": "0005_material_shadowcat",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785271636126,
+      "tag": "0006_petite_exiles",
+      "breakpoints": true
     }
   ]
 }
