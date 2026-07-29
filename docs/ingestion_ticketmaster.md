@@ -6,10 +6,10 @@ Knowledge base for evaluating and building an ingestion path against the
 a strong base. Sister docs: `technical-roadmap.md`, `scenes-knowledge-base.md`
 (data-sourcing & legal strategy, decision log).
 
-> **Status (2026-07-28):** Research / evaluation. No app registered, no API key
-> yet. This documents what the API offers and — importantly — the **licensing
-> catch** that makes it a different kind of source from theatre.info. Field-level
-> details marked _(to confirm)_ must be checked against a live call.
+> **Status (2026-07-29):** Key obtained and smoke-tested against live Paris data.
+> Auth confirmed (see §3). Response shape confirmed for event search (§4.3). Ready
+> to build the Phase-A pull. This doc also records the **licensing catch** that
+> makes TM a different kind of source from theatre.info.
 
 > **Decision (2026-07-28):** Ticketmaster is a **throwaway kickstart, not a
 > long-term source.** Its purpose is to seed an initial Paris catalogue so we can
@@ -80,10 +80,16 @@ pipeline before this is answered.
 
 - **Register an app** to get a key:
   `https://developer-acct.ticketmaster.com/user/register` (create a developer
-  account, register an application → receive a **Consumer Key** = the API key).
-- **Auth mechanism:** a query parameter on every request — **`apikey=<key>`**.
-  No OAuth, no header. Example:
+  account, register an application → receive a **Consumer Key** and a **Consumer
+  Secret**).
+- **Auth mechanism (confirmed 2026-07-29):** a query parameter on every request —
+  **`apikey=<Consumer Key>`**. No OAuth, no header. The **Consumer Secret is NOT
+  used** by Discovery v2 (it's only for OAuth-based TM products we don't touch) —
+  keep it out of the repo. Example:
   `https://app.ticketmaster.com/discovery/v2/events.json?apikey=<key>`
+- **Stored as** `TICKETMASTER_API_KEY` in the gitignored root `.env`
+  (placeholder already in `.env.example`); code reads `process.env` /
+  `os.environ`.
 - **Rate limits (default tier):**
   - **5 requests per second**
   - **5000 API calls per day**
@@ -165,15 +171,73 @@ Passed as query params on `events.json`. Most-relevant for a Paris cultural pull
 }
 ```
 
-Fields to pull per event _(to confirm exact paths live)_:
+Fields confirmed present on a live event object (2026-07-29 smoke test):
+`name`, `type` (`"event"`), `id`, `test` (bool), `description`, plus the fields
+below (standard Discovery event shape — exact nesting to re-verify per field as we
+map):
 - `id`, `name`, `url` (the **Ticketmaster purchase URL** — our affiliate/buy link),
 - `dates.start.dateTime` / `localDate` / `localTime` → `performances.startsAt`,
-- `classifications[]` (segment/genre) → tags,
+- `classifications[]` (segment/genre) → tags **and the noise filter, see §4.5**,
 - `_embedded.venues[]` → `venues` (`name`, `city.name`, `address.line1`,
   `location.latitude/longitude`),
 - `_embedded.attractions[]` → performers/company → `author`/`director`,
 - `images[]` → `events.imageUrl`,
 - `priceRanges[]`, `sales` → future ticketing metadata.
+
+### 4.5 The "Arts & Theatre" segment is noisy — filter by `genreId`
+
+Confirmed live (2026-07-29): `classificationName` is a **loose keyword match that
+does NOT narrow to a genre** — passing `Theatre` still returned the whole segment
+(`Arts et Théâtre`, 2246 events/week in Paris), of which **~75% was the `Culturel`
+genre — museum exhibitions** (Musée du Quai Branly, Musée Maillol), not theatre.
+Fix: filter by **`genreId`** (comma-separated for multiple). Resolved genre ids
+(segment `Arts et Théâtre` = `KZFzniwnSyZfZ7v7na`, locale `fr`):
+
+| Genre | genreId | keep? |
+|---|---|---|
+| Théâtre | `KnvZfZ7v7l1` | ✅ |
+| Théâtre pour enfants | `KnvZfZ7v7na` | ✅ |
+| Théâtre - Divers | `KnvZfZ7v7ld` | ✅ |
+| Humour (café-théâtre / one-man-show) | `KnvZfZ7vAe1` | ✅ (see scope Q) |
+| Marionettes | `KnvZfZ7v7lF` | ✅ |
+| **Culturel (museums)** | `KnvZfZ7v7nE` | ❌ noise |
+| Danse `KnvZfZ7v7nI`, Classique `KnvZfZ7v7nJ`, Variété `KnvZfZ7v7lJ`, Magie `KnvZfZ7v7lv`, Cirque `KnvZfZ7v7n1`, Opéra `KnvZfZ7v7lk` | — | scope-dependent |
+
+The theatre-genre set is `pull.py`'s default (`DEFAULT_GENRE_IDS`). Even more
+precise, when we want it: a **Paris theatre-venue whitelist** via `venueId` (we
+maintain a ~200-theatre list — see the venues-sheet memory), which also pre-solves
+dedup against theatre.info.
+
+### 4.6 Phase-A pull results (2026-07-29)
+
+First real sweep — **Paris, 90 days (2026-07-29 → 10-27), theatre genres**:
+
+- **9,726 distinct events.** Genre split: **Humour 5,065 · Théâtre 3,618 ·
+  Théâtre pour enfants 1,043** (Théâtre-Divers / Marionettes returned 0 this
+  window). Note Humour (comedy clubs / café-théâtre) is **>50%** of the volume.
+- **Field coverage is excellent — 0% nulls** on `id, name, url, dates.start.*,
+  venue name/city/postalCode, classification`. Confirmed mappable fields:
+  `url` (ticket link), `dates.start.{dateTime,localDate,localTime}` + flags
+  `dateTBA/dateTBD/noSpecificTime`, `dates.spanMultipleDays`, `dates.status.code`;
+  `_embedded.venues[0].{id,name,address.line1,city.name,postalCode,
+  country.countryCode,location.latitude,location.longitude,timezone,url}`;
+  `_embedded.attractions[]` (performers + `externalLinks`); `images[]`;
+  `sales.public.{startDateTime,endDateTime}`; `promoter(s)`.
+- **Deep-paging cap is seasonal:** summer weeks ~500/wk fit a 7-day window, but the
+  Sept/Oct *rentrée* pushes some weeks >1000. `pull.py` handles this by
+  **auto-bisecting** any window over the cap until each slice fits — no manual
+  tuning, no silent misses.
+- **TM has duplicate listings:** the `(lower(name)|venue|localDate)` dedup key
+  shows collisions of up to **6 rows** for the same show+venue+date (e.g. "Paname
+  Comedy Club" @ Le Paname Art Café). So dedup must collapse these — and it also
+  means TM's raw event count overstates the real number of distinct shows.
+
+**Scope decision (2026-07-29): keep Humour.** Café-théâtre / comedy clubs are a
+large, genuinely-live slice of Paris theatre culture and stay in scope — the
+theatre-genre default (incl. `KnvZfZ7vAe1`) is confirmed as `pull.py`'s default,
+no change. Revisit only if the product later wants a "serious theatre" filter
+(the TM genre is stored per event, so it can be filtered in the UI without a
+re-pull).
 
 ### 4.4 Example requests
 

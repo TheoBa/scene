@@ -1,0 +1,4 @@
+# Phase-A Ticketmaster ingestion (see docs/ingestion_ticketmaster.md)
+python-dotenv>=1.0    # load the root .env (TICKETMASTER_API_KEY)
+pyspark>=3.5          # profile_spark.py — needs a local JVM (Java 11/17)
+# pull.py uses only the stdlib (urllib), so no requests dependency.
