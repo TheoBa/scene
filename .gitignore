@@ -5,3 +5,8 @@ node_modules/
 dist/
 *.tsbuildinfo
 .DS_Store
+
+# Python (Phase-A ingestion tooling under scripts/)
+.venv/
+__pycache__/
+*.pyc
