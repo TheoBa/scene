@@ -6,10 +6,10 @@ Knowledge base for evaluating and building an ingestion path against the
 a strong base. Sister docs: `technical-roadmap.md`, `scenes-knowledge-base.md`
 (data-sourcing & legal strategy, decision log).
 
-> **Status (2026-07-28):** Research / evaluation. No app registered, no API key
-> yet. This documents what the API offers and — importantly — the **licensing
-> catch** that makes it a different kind of source from theatre.info. Field-level
-> details marked _(to confirm)_ must be checked against a live call.
+> **Status (2026-07-29):** Key obtained and smoke-tested against live Paris data.
+> Auth confirmed (see §3). Response shape confirmed for event search (§4.3). Ready
+> to build the Phase-A pull. This doc also records the **licensing catch** that
+> makes TM a different kind of source from theatre.info.
 
 > **Decision (2026-07-28):** Ticketmaster is a **throwaway kickstart, not a
 > long-term source.** Its purpose is to seed an initial Paris catalogue so we can
@@ -80,10 +80,16 @@ pipeline before this is answered.
 
 - **Register an app** to get a key:
   `https://developer-acct.ticketmaster.com/user/register` (create a developer
-  account, register an application → receive a **Consumer Key** = the API key).
-- **Auth mechanism:** a query parameter on every request — **`apikey=<key>`**.
-  No OAuth, no header. Example:
+  account, register an application → receive a **Consumer Key** and a **Consumer
+  Secret**).
+- **Auth mechanism (confirmed 2026-07-29):** a query parameter on every request —
+  **`apikey=<Consumer Key>`**. No OAuth, no header. The **Consumer Secret is NOT
+  used** by Discovery v2 (it's only for OAuth-based TM products we don't touch) —
+  keep it out of the repo. Example:
   `https://app.ticketmaster.com/discovery/v2/events.json?apikey=<key>`
+- **Stored as** `TICKETMASTER_API_KEY` in the gitignored root `.env`
+  (placeholder already in `.env.example`); code reads `process.env` /
+  `os.environ`.
 - **Rate limits (default tier):**
   - **5 requests per second**
   - **5000 API calls per day**
@@ -165,15 +171,32 @@ Passed as query params on `events.json`. Most-relevant for a Paris cultural pull
 }
 ```
 
-Fields to pull per event _(to confirm exact paths live)_:
+Fields confirmed present on a live event object (2026-07-29 smoke test):
+`name`, `type` (`"event"`), `id`, `test` (bool), `description`, plus the fields
+below (standard Discovery event shape — exact nesting to re-verify per field as we
+map):
 - `id`, `name`, `url` (the **Ticketmaster purchase URL** — our affiliate/buy link),
 - `dates.start.dateTime` / `localDate` / `localTime` → `performances.startsAt`,
-- `classifications[]` (segment/genre) → tags,
+- `classifications[]` (segment/genre) → tags **and the noise filter, see §4.5**,
 - `_embedded.venues[]` → `venues` (`name`, `city.name`, `address.line1`,
   `location.latitude/longitude`),
 - `_embedded.attractions[]` → performers/company → `author`/`director`,
 - `images[]` → `events.imageUrl`,
 - `priceRanges[]`, `sales` → future ticketing metadata.
+
+### 4.5 The "Arts & Theatre" segment is noisy — filter by genre
+
+Confirmed live: `classificationName=Arts & Theatre` returned
+`CITE DES ENFANTS 2-6 ANS` (a kids' science-museum attraction) as its top Paris
+result. The **segment bundles genres we don't want** (Family, Museum/Attraction,
+Comedy, Dance, etc.). So for a clean theatre catalogue:
+- filter to the **Theatre genre**, not just the segment — resolve its `genreId`
+  live via `/discovery/v2/classifications.json` (or `classificationName=Theatre`),
+  and _(to confirm)_ pin the exact genreId; and/or
+- constrain by a **Paris theatre-venue whitelist** (we already maintain a
+  ~200-theatre list — see the venues-sheet memory) via `venueId`, which is the
+  most precise filter and also solves dedup against theatre.info.
+- Expect to still hand-review edge cases; TM's classification is coarse.
 
 ### 4.4 Example requests
 
