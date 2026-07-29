@@ -232,9 +232,12 @@ First real sweep — **Paris, 90 days (2026-07-29 → 10-27), theatre genres**:
   Comedy Club" @ Le Paname Art Café). So dedup must collapse these — and it also
   means TM's raw event count overstates the real number of distinct shows.
 
-**Open scope question for Théo:** **Humour** (stand-up / comedy clubs) is >50% of
-the pulled catalogue. Is café-théâtre in scope for Scenes' positioning, or should
-we drop `KnvZfZ7vAe1` and keep Théâtre + Théâtre pour enfants (≈4.7k events)?
+**Scope decision (2026-07-29): keep Humour.** Café-théâtre / comedy clubs are a
+large, genuinely-live slice of Paris theatre culture and stay in scope — the
+theatre-genre default (incl. `KnvZfZ7vAe1`) is confirmed as `pull.py`'s default,
+no change. Revisit only if the product later wants a "serious theatre" filter
+(the TM genre is stored per event, so it can be filtered in the UI without a
+re-pull).
 
 ### 4.4 Example requests
 
