@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getDevAccess } from "@/lib/dev-access";
-import { getDevNotes, DEV_CATEGORIES } from "@/lib/dev-notes";
+import { DEV_CATEGORIES } from "@/lib/dev-notes";
+import { getDevNotes } from "@/lib/dev-notes-query";
 import { formatDateTime } from "@/lib/format";
 import { SiteHeader } from "@/components/SiteHeader";
 import { NoteActions } from "./NoteActions";
