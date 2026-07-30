@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listUpcomingShows, type ShowCard } from "@/lib/catalogue";
 import { formatDayMonth } from "@/lib/format";
+import { posterSrc } from "@/lib/poster";
 import { SiteHeader } from "@/components/SiteHeader";
 import { TabNav } from "@/components/TabNav";
 
@@ -142,21 +143,13 @@ function ShowPoster({ show }: { show: ShowCard }) {
   );
 }
 
-// Shared poster image with a graceful placeholder when a show has no artwork.
+// Shared poster image. Falls back to a general poster when a show has no artwork,
+// so freshly-ingested shows (no committed poster yet) still render cleanly.
 function Poster({ imageUrl }: { imageUrl: string | null }) {
-  if (!imageUrl) {
-    return (
-      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-black/[0.06] to-black/[0.02]">
-        <span className="font-display text-2xl font-bold text-black/15">
-          Scenes
-        </span>
-      </div>
-    );
-  }
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={`/posters/${imageUrl}`}
+      src={posterSrc(imageUrl)}
       alt=""
       className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
     />

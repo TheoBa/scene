@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { getShowBySlug, getEventReactions } from "@/lib/catalogue";
 import { getUserSeen } from "@/lib/espace";
 import { formatDateTime } from "@/lib/format";
+import { posterSrc } from "@/lib/poster";
 import { SiteHeader } from "@/components/SiteHeader";
 import { AvisSection } from "./AvisSection";
 import { ReactionHistogram } from "./ReactionHistogram";
@@ -58,32 +59,22 @@ export default async function ShowPage({
       {/* Poster-forward hero: the artwork bleeds behind a dark scrim with the
           sharp poster and the title sitting on top. */}
       <section className="relative mt-6 overflow-hidden rounded-3xl bg-neutral-900 shadow-sm ring-1 ring-black/5">
-        {show.imageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={`/posters/${show.imageUrl}`}
-            alt=""
-            aria-hidden
-            className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-2xl"
-          />
-        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={posterSrc(show.imageUrl)}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-2xl"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/75 to-neutral-900/40" />
 
         <div className="relative flex flex-col items-center gap-8 p-8 sm:flex-row sm:items-end sm:p-10">
-          {show.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`/posters/${show.imageUrl}`}
-              alt={`Affiche : ${show.name}`}
-              className="w-44 shrink-0 rounded-2xl object-cover shadow-2xl ring-1 ring-white/10 sm:w-52"
-            />
-          ) : (
-            <div className="flex aspect-[3/4] w-44 shrink-0 items-center justify-center rounded-2xl bg-white/5 ring-1 ring-white/10 sm:w-52">
-              <span className="font-display text-2xl font-bold text-white/20">
-                Scenes
-              </span>
-            </div>
-          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={posterSrc(show.imageUrl)}
+            alt={`Affiche : ${show.name}`}
+            className="w-44 shrink-0 rounded-2xl object-cover shadow-2xl ring-1 ring-white/10 sm:w-52"
+          />
 
           <div className="flex min-w-0 flex-col items-center text-center text-white sm:items-start sm:text-left">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/60">

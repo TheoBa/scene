@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import { getUserSeenShows } from "@/lib/espace";
 import { REACTIONS } from "@/lib/reactions";
+import { posterSrc } from "@/lib/poster";
 import { SiteHeader } from "@/components/SiteHeader";
 import { TabNav } from "@/components/TabNav";
 import { CommentEditor } from "./CommentEditor";
@@ -57,16 +58,12 @@ export default async function MonEspacePage() {
             >
               <div className="flex gap-4">
                 <Link href={`/shows/${s.slug}`} className="shrink-0">
-                  {s.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={`/posters/${s.imageUrl}`}
-                      alt=""
-                      className="h-24 w-16 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="h-24 w-16 rounded-lg bg-black/5" />
-                  )}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={posterSrc(s.imageUrl)}
+                    alt=""
+                    className="h-24 w-16 rounded-lg object-cover"
+                  />
                 </Link>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
