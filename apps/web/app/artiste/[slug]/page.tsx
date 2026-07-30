@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import type { Metadata } from "next";
-import { getArtistBySlug } from "@/lib/artists";
+import { auth } from "@/lib/auth";
+import { getArtistBySlug, isFollowingArtist } from "@/lib/artists";
 import { posterSrc } from "@/lib/poster";
 import { SiteHeader } from "@/components/SiteHeader";
+import { FollowButton } from "@/components/FollowButton";
+import { followArtist, unfollowArtist } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +33,9 @@ export default async function ArtistPage({
   const { slug } = await params;
   const artist = await getArtistBySlug(slug);
   if (!artist) notFound();
+
+  const session = await auth.api.getSession({ headers: await headers() });
+  const following = await isFollowingArtist(artist.id, session?.user.id);
 
   return (
     <div className="mx-auto min-h-screen max-w-4xl px-6 py-12">
@@ -59,16 +66,26 @@ export default async function ArtistPage({
             {artist.name}
           </h1>
           {artist.bio && <p className="mt-3 max-w-lg text-black/60">{artist.bio}</p>}
-          {artist.officialUrl && (
-            <a
-              href={artist.officialUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-full bg-black/5 px-4 py-2 text-sm font-semibold text-black/80 transition hover:bg-black/10"
-            >
-              Site officiel ↗
-            </a>
-          )}
+
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-3 sm:justify-start">
+            <FollowButton
+              id={artist.slug}
+              initialFollowing={following}
+              signedIn={!!session}
+              onFollow={followArtist}
+              onUnfollow={unfollowArtist}
+            />
+            {artist.officialUrl && (
+              <a
+                href={artist.officialUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex w-fit items-center gap-1.5 rounded-full bg-black/5 px-4 py-2 text-sm font-semibold text-black/80 transition hover:bg-black/10"
+              >
+                Site officiel ↗
+              </a>
+            )}
+          </div>
         </div>
       </section>
 
@@ -104,7 +121,7 @@ export default async function ArtistPage({
         )}
       </section>
 
-      {/* Follow / claim CTA land here in later slices. */}
+      {/* Claim CTA lands here in a later slice. */}
     </div>
   );
 }
