@@ -1,5 +1,5 @@
-import { asc, eq } from "drizzle-orm";
-import { artists, eventArtists, events } from "@scenes/db";
+import { and, asc, eq } from "drizzle-orm";
+import { artistFollows, artists, eventArtists, events } from "@scenes/db";
 import { getDb } from "./db";
 
 // Artist-page queries — mirrors venues.ts / catalogue.ts's shape.
@@ -57,4 +57,15 @@ export async function getArtistBySlug(slug: string): Promise<ArtistDetail | null
     .orderBy(asc(events.name));
 
   return { ...artist, shows };
+}
+
+// Whether `viewerId` follows this artist. false for logged-out visitors.
+export async function isFollowingArtist(artistId: string, viewerId?: string): Promise<boolean> {
+  if (!viewerId) return false;
+  const [row] = await getDb()
+    .select({ userId: artistFollows.userId })
+    .from(artistFollows)
+    .where(and(eq(artistFollows.userId, viewerId), eq(artistFollows.artistId, artistId)))
+    .limit(1);
+  return !!row;
 }

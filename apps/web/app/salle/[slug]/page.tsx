@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import type { Metadata } from "next";
-import { getVenueBySlug } from "@/lib/venues";
+import { auth } from "@/lib/auth";
+import { getVenueBySlug, isFollowingVenue } from "@/lib/venues";
 import { formatDateTime } from "@/lib/format";
 import { posterSrc } from "@/lib/poster";
 import { SiteHeader } from "@/components/SiteHeader";
+import { FollowButton } from "@/components/FollowButton";
+import { followVenue, unfollowVenue } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +34,9 @@ export default async function VenuePage({
   const { slug } = await params;
   const venue = await getVenueBySlug(slug);
   if (!venue) notFound();
+
+  const session = await auth.api.getSession({ headers: await headers() });
+  const following = await isFollowingVenue(venue.id, session?.user.id);
 
   const MAX_DATES = 12;
   const shownDates = venue.upcoming.slice(0, MAX_DATES);
@@ -74,16 +81,25 @@ export default async function VenuePage({
             {venue.address && <p className="mt-3 text-white/70">{venue.address}</p>}
             {venue.bio && <p className="mt-3 max-w-lg text-white/70">{venue.bio}</p>}
 
-            {venue.officialUrl && (
-              <a
-                href={venue.officialUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-6 inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-neutral-900 transition hover:bg-white/90"
-              >
-                Site officiel ↗
-              </a>
-            )}
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3 sm:justify-start">
+              <FollowButton
+                id={venue.slug}
+                initialFollowing={following}
+                signedIn={!!session}
+                onFollow={followVenue}
+                onUnfollow={unfollowVenue}
+              />
+              {venue.officialUrl && (
+                <a
+                  href={venue.officialUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-neutral-900 transition hover:bg-white/90"
+                >
+                  Site officiel ↗
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -122,7 +138,7 @@ export default async function VenuePage({
         )}
       </section>
 
-      {/* Follow / claim CTA land here in later slices. */}
+      {/* Claim CTA lands here in a later slice. */}
     </div>
   );
 }

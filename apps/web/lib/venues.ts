@@ -1,5 +1,5 @@
 import { and, asc, count, eq, gte, isNotNull } from "drizzle-orm";
-import { events, performances, venues } from "@scenes/db";
+import { events, performances, venueFollows, venues } from "@scenes/db";
 import { getDb } from "./db";
 
 // Venue-page queries — kept separate from catalogue.ts (event-centric) rather
@@ -92,4 +92,15 @@ export async function getVenueBySlug(slug: string): Promise<VenueDetail | null> 
   // `venue.slug` matched the (non-null) `slug` argument via eq() above, so it's
   // guaranteed non-null here even though the column itself is still nullable.
   return { ...venue, slug: venue.slug as string, upcoming };
+}
+
+// Whether `viewerId` follows this venue. false for logged-out visitors.
+export async function isFollowingVenue(venueId: string, viewerId?: string): Promise<boolean> {
+  if (!viewerId) return false;
+  const [row] = await getDb()
+    .select({ userId: venueFollows.userId })
+    .from(venueFollows)
+    .where(and(eq(venueFollows.userId, viewerId), eq(venueFollows.venueId, venueId)))
+    .limit(1);
+  return !!row;
 }

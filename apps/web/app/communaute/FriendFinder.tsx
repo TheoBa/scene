@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { FollowButton } from "@/components/FollowButton";
-import { searchPeopleAction } from "./actions";
+import { follow, searchPeopleAction, unfollow } from "./actions";
 import type { PersonResult } from "@/lib/community";
 
 // Find people by pseudo + copy your personal invite link. Search is debounced
@@ -81,9 +81,11 @@ export function FriendFinder({ myPseudo }: { myPseudo: string | null }) {
                   {p.pseudo}
                 </Link>
                 <FollowButton
-                  pseudo={p.pseudo}
+                  id={p.pseudo}
                   initialFollowing={p.isFollowing}
                   signedIn
+                  onFollow={follow}
+                  onUnfollow={unfollow}
                 />
               </li>
             ))

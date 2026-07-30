@@ -8,6 +8,7 @@ import { formatDayMonth } from "@/lib/format";
 import { posterSrc } from "@/lib/poster";
 import { SiteHeader } from "@/components/SiteHeader";
 import { FollowButton } from "@/components/FollowButton";
+import { follow, unfollow } from "@/app/communaute/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -58,9 +59,11 @@ export default async function ProfilePage({
         </div>
         {!profile.isSelf && (
           <FollowButton
-            pseudo={profile.pseudo}
+            id={profile.pseudo}
             initialFollowing={profile.isFollowing}
             signedIn={!!viewer}
+            onFollow={follow}
+            onUnfollow={unfollow}
           />
         )}
         {profile.isSelf && (
