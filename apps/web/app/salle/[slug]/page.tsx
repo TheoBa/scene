@@ -9,7 +9,8 @@ import { posterSrc } from "@/lib/poster";
 import { SiteHeader } from "@/components/SiteHeader";
 import { FollowButton } from "@/components/FollowButton";
 import { ClaimForm } from "@/components/ClaimForm";
-import { followVenue, unfollowVenue } from "../actions";
+import { ClaimedEntityEditForm } from "@/components/ClaimedEntityEditForm";
+import { followVenue, unfollowVenue, updateVenueProfile } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -139,18 +140,35 @@ export default async function VenuePage({
         )}
       </section>
 
-      {!venue.claimedByUserId && (
+      {venue.claimedByUserId === session?.user.id ? (
         <section className="mt-12 flex flex-col items-center gap-3 text-center">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-black/40">
-            Vous gérez cette salle ?
+            Votre page
           </h2>
-          <ClaimForm
-            targetType="venue"
-            targetId={venue.id}
-            targetSlug={venue.slug}
-            signedIn={!!session}
+          <ClaimedEntityEditForm
+            slug={venue.slug}
+            initial={{
+              bio: venue.bio ?? "",
+              imageUrl: venue.imageUrl ?? "",
+              officialUrl: venue.officialUrl ?? "",
+            }}
+            onSave={updateVenueProfile}
           />
         </section>
+      ) : (
+        !venue.claimedByUserId && (
+          <section className="mt-12 flex flex-col items-center gap-3 text-center">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-black/40">
+              Vous gérez cette salle ?
+            </h2>
+            <ClaimForm
+              targetType="venue"
+              targetId={venue.id}
+              targetSlug={venue.slug}
+              signedIn={!!session}
+            />
+          </section>
+        )
       )}
     </div>
   );
