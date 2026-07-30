@@ -5,6 +5,7 @@ import { getSessionUser } from "@/lib/session";
 import { getProfileByPseudo } from "@/lib/community";
 import { REACTIONS } from "@/lib/reactions";
 import { formatDayMonth } from "@/lib/format";
+import { posterSrc } from "@/lib/poster";
 import { SiteHeader } from "@/components/SiteHeader";
 import { FollowButton } from "@/components/FollowButton";
 
@@ -84,16 +85,12 @@ export default async function ProfilePage({
               >
                 <div className="flex gap-4">
                   <Link href={`/shows/${r.showSlug}`} className="shrink-0">
-                    {r.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={`/posters/${r.imageUrl}`}
-                        alt=""
-                        className="h-24 w-16 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <div className="h-24 w-16 rounded-lg bg-black/5" />
-                    )}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={posterSrc(r.imageUrl)}
+                      alt=""
+                      className="h-24 w-16 rounded-lg object-cover"
+                    />
                   </Link>
                   <div className="min-w-0 flex-1">
                     <Link
