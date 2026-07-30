@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { getDevAccess } from "@/lib/dev-access";
-import { devNotes } from "@scenes/db";
+import { artists, claims, devNotes, venues } from "@scenes/db";
 import { isDevCategory, isDevNoteStatus } from "@/lib/dev-notes";
 
 const MAX_BODY = 4000;
@@ -72,5 +72,38 @@ export async function deleteDevNote(id: string): Promise<DeleteNoteResult> {
   await getDb().delete(devNotes).where(eq(devNotes.id, id));
 
   revalidatePath("/dev/notes");
+  return { ok: true };
+}
+
+export type DecideClaimResult = { ok: true } | { ok: false; error: string };
+
+// Approve/reject a claim request from /dev/claims. Approving sets the
+// target's claimedByUserId/claimedAt; rejecting only flips claims.status —
+// manual review only, no roles/permissions system.
+export async function decideClaim(
+  id: string,
+  decision: "approved" | "rejected",
+): Promise<DecideClaimResult> {
+  const dev = await getDevAccess();
+  if (!dev) return { ok: false, error: "Accès refusé." };
+
+  const [claim] = await getDb().select().from(claims).where(eq(claims.id, id)).limit(1);
+  if (!claim) return { ok: false, error: "Demande introuvable." };
+  if (claim.status !== "pending") return { ok: false, error: "Déjà traitée." };
+
+  await getDb()
+    .update(claims)
+    .set({ status: decision, decidedAt: new Date(), decidedBy: dev.id })
+    .where(eq(claims.id, id));
+
+  if (decision === "approved") {
+    const table = claim.targetType === "venue" ? venues : artists;
+    await getDb()
+      .update(table)
+      .set({ claimedByUserId: claim.userId, claimedAt: new Date() })
+      .where(eq(table.id, claim.targetId));
+  }
+
+  revalidatePath("/dev/claims");
   return { ok: true };
 }

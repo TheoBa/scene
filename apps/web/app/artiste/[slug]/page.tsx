@@ -7,6 +7,7 @@ import { getArtistBySlug, isFollowingArtist } from "@/lib/artists";
 import { posterSrc } from "@/lib/poster";
 import { SiteHeader } from "@/components/SiteHeader";
 import { FollowButton } from "@/components/FollowButton";
+import { ClaimForm } from "@/components/ClaimForm";
 import { followArtist, unfollowArtist } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -121,7 +122,19 @@ export default async function ArtistPage({
         )}
       </section>
 
-      {/* Claim CTA lands here in a later slice. */}
+      {!artist.claimedByUserId && (
+        <section className="mt-12 flex flex-col items-center gap-3 text-center">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-black/40">
+            Vous êtes cet artiste ?
+          </h2>
+          <ClaimForm
+            targetType="artist"
+            targetId={artist.id}
+            targetSlug={artist.slug}
+            signedIn={!!session}
+          />
+        </section>
+      )}
     </div>
   );
 }
