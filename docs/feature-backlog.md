@@ -23,7 +23,7 @@ The POC has moved fast. The read experience **and** auth are already live on `sc
 - **Catalogue browsing (the old "Candidate A")** — public `/shows` discovery list + `/shows/[slug]` piece page, live DB reads, SEO metadata per page. Seeded with 5 shows / 4 venues.
 - **Infra** — staging deploys from `dev` via Coolify + Cloudflare Tunnel; migrations run via a documented flow (runbook S5).
 
-**Not yet done / deferred:** ratings, comments, ticketing, follows/feed, carnets, search/filters, venue/artist pages, map, **real catalogue data at scale**, automated ingestion, SEO hardening (sitemap/schema.org), most platform/legal items.
+**Not yet done / deferred:** ratings, ticketing, carnets, search/filters, map, **real catalogue data at scale**, automated ingestion (beyond Ticketmaster), SEO hardening (sitemap/schema.org), most platform/legal items. (This section is a dated snapshot from 2026-07-22 — comments/follows and, as of 2026-07-30, venue/artist pages + claim flow have since shipped; see §3.4/§3.5 below for current state.)
 
 **Priority legend (post-read-experience, post-auth).** ✅ = shipped · **P0** = build next · P1 = fast-follow · P2 = later.
 **Effort:** S (hours–1 day) · M (a few days) · L (a week+ / genuinely uncertain).
@@ -122,13 +122,14 @@ The social differentiator, and now **unblocked** (auth + profiles exist). First 
 
 | Feature | What it is | Prio | Effort | Key deps |
 |---|---|---|---|---|
-| Venue page (`/salle/[slug]`) | Venue page aggregating its programme | P1 | M | venues ✅ (+ slug) |
-| Artist page (`/artiste/[slug]`) | Profile per artist, linked to shows | P2 | M | artists table |
-| Artist mode on profile | Flag a user as artist | P2 | S | auth ✅, roles |
+| Venue page (`/salle/[slug]`) | Venue page aggregating its programme; followable | ✅ | M | venues ✅ (+ slug) |
+| Artist page (`/artiste/[slug]`) | Profile per artist, linked to shows; followable | ✅ | M | artists table ✅ |
+| Venue/artist claim flow | Claim auto-generated page — **manual review only**, no email-domain auto-verification | ✅ | L | auth ✅, `claims` table |
+| Minimal self-edit (claimed pages) | Bio/photo/official link, once claimed | ✅ | S | claim ✅ |
+| Artist mode on profile | Flag a user as artist (separate from claiming an artist page) | P2 | S | auth ✅, roles |
 | Artist show-proposal form | Artist proposes a show | P2 | M | auth ✅, roles |
-| Venue/artist claim flow | Claim auto-generated page | P2 | L | auth ✅, roles, pages |
-| Venue dashboard | Edit venue, manage programme | P2 | L | claim, roles |
-| Roles / permissions model | user / venue / artist / admin | P2 | M | auth ✅ |
+| Venue dashboard | Self-service programme/show management, beyond bio/photo/link | P2 | L | claim ✅, roles |
+| Roles / permissions model | user / venue / artist / admin — today it's just `claimedByUserId`, not a role system | P2 | M | auth ✅ |
 
 ### 3.6 Monetization (ticketing / affiliate)
 
