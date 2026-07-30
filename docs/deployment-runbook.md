@@ -400,6 +400,37 @@ rows in `drizzle.__drizzle_migrations`.
 Later: promote this to a pre-deploy step in Coolify (needs an image/step that
 carries `drizzle-kit` + the `migrations/` folder — the web runtime image doesn't).
 
+### S5a. One-off backfill scripts
+
+Some migrations add a `NOT NULL` column to a table that already has rows
+(`venues` in every environment, unlike freshly-created tables). Since a single
+`npm run db:migrate` applies every pending migration in one go, the safe
+sequence for these is always: **land the column nullable → merge & deploy →
+backfill on staging → only then add the follow-up "tighten to NOT NULL"
+migration in a small separate PR.** Never commit the NOT NULL migration
+alongside the nullable one — `db:migrate` would try to run it before the
+backfill script has had a chance to run, and it would fail against staging's
+existing rows.
+
+Example — `venues.slug` (added by the venue/artist pages feature):
+
+1. **macOS (Mac Mini), repo root**, after `npm run db:migrate` in S5 above has
+   applied the migration that adds the nullable column, with `.env.staging`
+   still sourced:
+   ```bash
+   npm run backfill-venue-slugs -w packages/db
+   ```
+   Expect: `[backfill-venue-slugs] done — N venue(s) slugged`.
+2. Verify every row now has a slug before telling Claude/whoever to open the
+   follow-up NOT NULL PR:
+   ```bash
+   psql "$DATABASE_URL" -c "select count(*) from venues where slug is null;"
+   ```
+   Expect: `0`.
+3. Once that PR (adding the `NOT NULL` migration) is merged and deployed, run
+   `npm run db:migrate` again — it applies cleanly since every row now
+   qualifies.
+
 ---
 
 ## Phase-0 exit checklist
