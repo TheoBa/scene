@@ -1,5 +1,5 @@
 import { and, asc, count, eq, gte } from "drizzle-orm";
-import { events, performances, reactions, venues } from "@scenes/db";
+import { artists, eventArtists, events, performances, reactions, venues } from "@scenes/db";
 import { getDb } from "./db";
 import {
   emptyReactionCounts,
@@ -27,7 +27,11 @@ export interface ShowDetail {
   durationMinutes: number | null;
   imageUrl: string | null;
   officialUrl: string | null;
-  performances: { startsAt: Date; venue: string; address: string | null }[];
+  // venueSlug is nullable: venues.slug is still nullable on the column until a
+  // follow-up migration tightens it (see schema.ts) — a venue seen before that
+  // backfill runs would render its name as plain text instead of a link.
+  performances: { startsAt: Date; venue: string; venueSlug: string | null; address: string | null }[];
+  artists: { slug: string; name: string }[];
 }
 
 // Discovery list: one card per show with an upcoming performance, soonest first.
@@ -96,6 +100,7 @@ export async function getShowBySlug(slug: string): Promise<ShowDetail | null> {
     .select({
       startsAt: performances.startsAt,
       venue: venues.name,
+      venueSlug: venues.slug,
       address: venues.address,
     })
     .from(performances)
@@ -104,6 +109,13 @@ export async function getShowBySlug(slug: string): Promise<ShowDetail | null> {
       and(eq(performances.eventId, event.id), gte(performances.startsAt, new Date())),
     )
     .orderBy(asc(performances.startsAt));
+
+  const linkedArtists = await getDb()
+    .select({ slug: artists.slug, name: artists.name })
+    .from(eventArtists)
+    .innerJoin(artists, eq(eventArtists.artistId, artists.id))
+    .where(eq(eventArtists.eventId, event.id))
+    .orderBy(asc(artists.name));
 
   return {
     id: event.id,
@@ -116,6 +128,7 @@ export async function getShowBySlug(slug: string): Promise<ShowDetail | null> {
     imageUrl: event.imageUrl,
     officialUrl: event.officialUrl,
     performances: perfs,
+    artists: linkedArtists,
   };
 }
 

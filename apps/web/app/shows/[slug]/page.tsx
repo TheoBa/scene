@@ -85,6 +85,20 @@ export default async function ShowPage({
             </h1>
             {subtitle && <p className="mt-3 text-white/70">{subtitle}</p>}
 
+            {show.artists.length > 0 && (
+              <p className="mt-2 text-sm text-white/60">
+                avec{" "}
+                {show.artists.map((a, i) => (
+                  <span key={a.slug}>
+                    {i > 0 && ", "}
+                    <Link href={`/artiste/${a.slug}`} className="underline hover:text-white">
+                      {a.name}
+                    </Link>
+                  </span>
+                ))}
+              </p>
+            )}
+
             {(show.tags.length > 0 || show.durationMinutes) && (
               <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                 {show.tags.map((t) => (
@@ -137,9 +151,16 @@ export default async function ShowPage({
                     <span className="font-medium capitalize">
                       {formatDateTime(p.startsAt)}
                     </span>
-                    <span className="text-right text-sm text-black/50">
-                      {p.venue}
-                    </span>
+                    {p.venueSlug ? (
+                      <Link
+                        href={`/salle/${p.venueSlug}`}
+                        className="text-right text-sm text-black/50 hover:text-[var(--accent)] hover:underline"
+                      >
+                        {p.venue}
+                      </Link>
+                    ) : (
+                      <span className="text-right text-sm text-black/50">{p.venue}</span>
+                    )}
                   </li>
                 ))}
               </ul>
