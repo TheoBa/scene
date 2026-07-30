@@ -5,6 +5,7 @@ import * as authTables from "./auth-schema";
 
 export * from "./schema";
 export * from "./auth-schema";
+export * from "./slug";
 
 // Drizzle needs every table (domain + better-auth's) to resolve relations.
 const schema = { ...domain, ...authTables };

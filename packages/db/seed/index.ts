@@ -10,6 +10,7 @@ import {
   performances,
   profiles,
   reactions,
+  slugify,
   user,
   venues,
 } from "../src/index.js";
@@ -34,16 +35,6 @@ function rand01(a: number, b: number): number {
 // year+ (La Cantatrice, La Leçon) — expanding them all would create thousands of
 // far-future rows nobody will look at. The catalogue only shows what's upcoming.
 const HORIZON_DAYS = 90;
-
-// URL slug from a show name: strip accents, lowercase, non-alphanumerics → "-".
-function slugify(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 // Slugs with a poster committed at apps/web/public/posters/<slug>.jpg. Stored as
 // events.image_url = "<slug>.jpg"; shows not listed here keep image_url null.

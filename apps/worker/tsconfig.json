@@ -1,8 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    // Bundler resolution (not NodeNext): the shared @scenes/db package is written
+    // in extensionless/bundler style for the Next app, and the worker runs via
+    // tsx/esbuild (no tsc emit), so this lets tsc typecheck across the boundary.
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true
