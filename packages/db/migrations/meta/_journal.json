@@ -50,6 +50,13 @@
       "when": 1785271636126,
       "tag": "0006_petite_exiles",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785418527703,
+      "tag": "0007_nasty_khan",
+      "breakpoints": true
     }
   ]
 }
