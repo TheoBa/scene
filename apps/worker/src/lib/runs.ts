@@ -13,6 +13,7 @@ export interface RunCounts {
   eventsUpserted: number;
   venuesUpserted: number;
   performancesUpserted: number;
+  artistsUpserted: number;
 }
 
 export const emptyCounts = (): RunCounts => ({
@@ -22,6 +23,7 @@ export const emptyCounts = (): RunCounts => ({
   eventsUpserted: 0,
   venuesUpserted: 0,
   performancesUpserted: 0,
+  artistsUpserted: 0,
 });
 
 /** Open a run row (`status='running'`); returns its id. */

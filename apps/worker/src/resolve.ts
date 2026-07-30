@@ -1,5 +1,15 @@
-import { events, performances, slugify, sourceEvents, venues, type Db } from "@scenes/db";
-import { eq, inArray, isNull } from "drizzle-orm";
+import {
+  artists,
+  eventArtists,
+  events,
+  performances,
+  slugify,
+  sourceEvents,
+  uniqueSlug,
+  venues,
+  type Db,
+} from "@scenes/db";
+import { inArray, isNull } from "drizzle-orm";
 
 /**
  * Resolve staging `source_events` into the canonical model. This is the
@@ -22,6 +32,7 @@ export interface ResolveResult {
   venuesUpserted: number;
   eventsUpserted: number;
   performancesUpserted: number;
+  artistsUpserted: number;
   linked: number; // source_events newly linked to a performance
   skipped: number; // rows missing title/venue/date — left unresolved for a later pass
 }
@@ -34,6 +45,7 @@ export async function resolveSourceEvents(db: Db): Promise<ResolveResult> {
     venuesUpserted: 0,
     eventsUpserted: 0,
     performancesUpserted: 0,
+    artistsUpserted: 0,
     linked: 0,
     skipped: 0,
   };
@@ -47,6 +59,7 @@ export async function resolveSourceEvents(db: Db): Promise<ResolveResult> {
       venueAddress: sourceEvents.venueAddress,
       genre: sourceEvents.genre,
       startsAt: sourceEvents.startsAt,
+      performers: sourceEvents.performers,
     })
     .from(sourceEvents)
     .where(isNull(sourceEvents.performanceId));
@@ -63,14 +76,26 @@ export async function resolveSourceEvents(db: Db): Promise<ResolveResult> {
 
   await db.transaction(async (tx) => {
     // ---- Venues: upsert by unique name (first-seen address as a bonus) ----
+    // Slugs are computed here (not left null) so every venue the worker creates
+    // is immediately reachable at /salle/[slug] — `uniqueSlug` guards against
+    // collisions since venue names collide far more than show titles once
+    // slugified. Existing venues' slugs are untouched (onConflictDoNothing).
     const addressByVenue = new Map<string, string | null>();
     for (const r of resolvable) {
       if (!addressByVenue.has(r.venueName)) addressByVenue.set(r.venueName, r.venueAddress ?? null);
     }
     const venueNames = [...addressByVenue.keys()];
+    const existingVenueSlugs = await tx.select({ slug: venues.slug }).from(venues);
+    const takenVenueSlugs = new Set(existingVenueSlugs.flatMap((v) => (v.slug ? [v.slug] : [])));
     const insertedVenues = await tx
       .insert(venues)
-      .values(venueNames.map((name) => ({ name, address: addressByVenue.get(name) ?? null })))
+      .values(
+        venueNames.map((name) => {
+          const slug = uniqueSlug(slugify(name), takenVenueSlugs);
+          takenVenueSlugs.add(slug);
+          return { name, address: addressByVenue.get(name) ?? null, slug };
+        }),
+      )
       .onConflictDoNothing()
       .returning({ id: venues.id });
     result.venuesUpserted = insertedVenues.length;
@@ -104,6 +129,56 @@ export async function resolveSourceEvents(db: Db): Promise<ResolveResult> {
       .from(events)
       .where(inArray(events.slug, slugs));
     const eventIdBySlug = new Map(eventRows.map((e) => [e.slug, e.id]));
+
+    // ---- Artists: upsert by unique name from sourceEvents.performers ----
+    // Only the Ticketmaster adapter populates `performers` today (OpenAgenda /
+    // DATAtourisme / France Billet are still TODO stubs), so this is inherently
+    // partial coverage for now — same "unique name, onConflictDoNothing" pattern
+    // as venues, so a name that later also appears via the seed's author/director
+    // backfill collapses onto the same row for free.
+    const artistNames = new Set<string>();
+    for (const r of resolvable) {
+      for (const name of r.performers ?? []) {
+        const trimmed = name.trim();
+        if (trimmed) artistNames.add(trimmed);
+      }
+    }
+    const existingArtists = await tx
+      .select({ id: artists.id, name: artists.name, slug: artists.slug })
+      .from(artists);
+    const takenArtistSlugs = new Set(existingArtists.map((a) => a.slug));
+    const artistIdByName = new Map(existingArtists.map((a) => [a.name, a.id]));
+    const newArtistNames = [...artistNames].filter((name) => !artistIdByName.has(name));
+    if (newArtistNames.length) {
+      const insertedArtists = await tx
+        .insert(artists)
+        .values(
+          newArtistNames.map((name) => {
+            const slug = uniqueSlug(slugify(name), takenArtistSlugs);
+            takenArtistSlugs.add(slug);
+            return { name, slug };
+          }),
+        )
+        .onConflictDoNothing()
+        .returning({ id: artists.id, name: artists.name });
+      result.artistsUpserted = insertedArtists.length;
+      for (const a of insertedArtists) artistIdByName.set(a.name, a.id);
+    }
+
+    // ---- Event ↔ Artist links, deduped via the unique(eventId, artistId) constraint ----
+    const eventArtistPairs = new Map<string, { eventId: string; artistId: string }>();
+    for (const r of resolvable) {
+      const eventId = eventIdBySlug.get(slugify(r.title));
+      if (!eventId) continue;
+      for (const name of r.performers ?? []) {
+        const artistId = artistIdByName.get(name.trim());
+        if (!artistId) continue;
+        eventArtistPairs.set(`${eventId}|${artistId}`, { eventId, artistId });
+      }
+    }
+    if (eventArtistPairs.size) {
+      await tx.insert(eventArtists).values([...eventArtistPairs.values()]).onConflictDoNothing();
+    }
 
     // ---- Performances: one per distinct (event, venue, startsAt) ----
     // Seed the key→id map with performances that already exist for these events,
@@ -171,8 +246,8 @@ export async function resolveSourceEvents(db: Db): Promise<ResolveResult> {
 
   console.log(
     `[resolve] ${result.linked} rows linked → ${result.eventsUpserted} new events, ` +
-      `${result.venuesUpserted} new venues, ${result.performancesUpserted} new performances ` +
-      `(${result.skipped} skipped: missing title/venue/date)`,
+      `${result.venuesUpserted} new venues, ${result.performancesUpserted} new performances, ` +
+      `${result.artistsUpserted} new artists (${result.skipped} skipped: missing title/venue/date)`,
   );
   return result;
 }

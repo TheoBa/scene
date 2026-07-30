@@ -3,14 +3,17 @@
 // relâche) into concrete `performances`. Idempotent. Needs DATABASE_URL.
 //   npm run db:seed            (from repo root)
 import {
+  artists,
   attendance,
   comments,
   createDb,
+  eventArtists,
   events,
   performances,
   profiles,
   reactions,
   slugify,
+  uniqueSlug,
   user,
   venues,
 } from "../src/index.js";
@@ -20,6 +23,7 @@ import {
   seedDemoComments,
   type Weekday,
 } from "./data.js";
+import { inArray } from "drizzle-orm";
 
 // Kept in sync with apps/web/lib/reactions.ts (packages/db must not import from
 // the web app). Used only to seed demo reaction counts.
@@ -115,6 +119,7 @@ async function main(): Promise<void> {
   let perfCount = 0;
   let reactionCount = 0;
   let commentCount = 0;
+  let artistCount = 0;
 
   await db.transaction(async (tx) => {
     // Non-destructive: upsert venues (by name) and events (by slug) so existing
@@ -123,12 +128,22 @@ async function main(): Promise<void> {
     // carry no user data, so they alone are cleared and rebuilt.
     await tx.delete(performances);
 
-    // Distinct venues (already normalised in data.ts). Upsert by unique name,
-    // then read them all back into a name → id map.
+    // Distinct venues (already normalised in data.ts). Upsert by unique name —
+    // slugs computed here (uniqueSlug guards collisions, same as resolve.ts's
+    // worker-side venue upsert) so every seeded venue is reachable at
+    // /salle/[slug] — then read them all back into a name → id map.
     const venueNames = [...new Set(seedShows.map((s) => s.venue))];
+    const existingVenueSlugs = await tx.select({ slug: venues.slug }).from(venues);
+    const takenVenueSlugs = new Set(existingVenueSlugs.flatMap((v) => (v.slug ? [v.slug] : [])));
     await tx
       .insert(venues)
-      .values(venueNames.map((name) => ({ name })))
+      .values(
+        venueNames.map((name) => {
+          const slug = uniqueSlug(slugify(name), takenVenueSlugs);
+          takenVenueSlugs.add(slug);
+          return { name, slug };
+        }),
+      )
       .onConflictDoNothing();
     const venueRows = await tx
       .select({ id: venues.id, name: venues.name })
@@ -194,6 +209,59 @@ async function main(): Promise<void> {
     const idBySlug = new Map(
       seedShows.map((s, i) => [slugify(s.title), eventIds[i]]),
     );
+
+    // Backfill artists from the curated author/director fields — otherwise
+    // /artiste pages stay empty until Ticketmaster-scale ingestion accumulates,
+    // which defeats "artist pages exist by default". Each distinct string
+    // becomes one artists row (no person/company split, no comma-splitting of
+    // multi-name credits) — mirrors how `director` already conflates "metteur
+    // en scène" and "compagnie" in one free-text column. Same
+    // upsert-by-unique-name pattern as venues/resolve.ts, so a name that later
+    // also appears via Ticketmaster's `performers[]` collapses onto this row.
+    const artistNames = new Set<string>();
+    for (const show of seedShows) {
+      for (const raw of [show.author, show.director]) {
+        const name = raw?.trim();
+        if (name) artistNames.add(name);
+      }
+    }
+    const existingArtists = await tx
+      .select({ id: artists.id, name: artists.name, slug: artists.slug })
+      .from(artists);
+    const takenArtistSlugs = new Set(existingArtists.map((a) => a.slug));
+    const artistIdByName = new Map(existingArtists.map((a) => [a.name, a.id]));
+    const newArtistNames = [...artistNames].filter((name) => !artistIdByName.has(name));
+    if (newArtistNames.length) {
+      await tx
+        .insert(artists)
+        .values(
+          newArtistNames.map((name) => {
+            const slug = uniqueSlug(slugify(name), takenArtistSlugs);
+            takenArtistSlugs.add(slug);
+            return { name, slug };
+          }),
+        )
+        .onConflictDoNothing();
+      const inserted = await tx
+        .select({ id: artists.id, name: artists.name })
+        .from(artists)
+        .where(inArray(artists.name, newArtistNames));
+      for (const a of inserted) artistIdByName.set(a.name, a.id);
+    }
+    artistCount = newArtistNames.length;
+
+    const eventArtistRows: { eventId: string; artistId: string }[] = [];
+    seedShows.forEach((show, i) => {
+      const eventId = eventIds[i];
+      const names = new Set([show.author?.trim(), show.director?.trim()].filter(Boolean) as string[]);
+      for (const name of names) {
+        const artistId = artistIdByName.get(name);
+        if (artistId) eventArtistRows.push({ eventId, artistId });
+      }
+    });
+    if (eventArtistRows.length) {
+      await tx.insert(eventArtists).values(eventArtistRows).onConflictDoNothing();
+    }
 
     // Demo community — stable throwaway users with real profiles (findable by
     // pseudo, follow-able) plus reactions and reviews so the discovery counts and
@@ -266,7 +334,8 @@ async function main(): Promise<void> {
 
   console.log(
     `[seed] done — ${new Set(seedShows.map((s) => s.venue)).size} venues, ` +
-      `${seedShows.length} shows, ${perfCount} upcoming performances (${HORIZON_DAYS}d horizon), ` +
+      `${seedShows.length} shows, ${artistCount} new artists, ` +
+      `${perfCount} upcoming performances (${HORIZON_DAYS}d horizon), ` +
       `${reactionCount} demo reactions, ${commentCount} demo reviews`,
   );
 }
