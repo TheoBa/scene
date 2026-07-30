@@ -13,16 +13,37 @@ import { sql } from "drizzle-orm";
 import { user } from "./auth-schema";
 
 // Lean POC schema — logical domains in the public namespace: Venues, Events,
-// Performances. Kept concise; columns are added when a feature needs them
-// (e.g. lat/lng once the map lands, provenance once ingestion returns).
-// Artists are deferred.
+// Performances, Artists. Kept concise; columns are added when a feature needs
+// them (e.g. lat/lng once the map lands, provenance once ingestion returns).
 
 // ---------- Venues ----------
+// Always-on: a venue row exists once any show references it (ingestion/seed),
+// not only once a human creates a page. Gets its own page at /salle/[slug],
+// followable (`venueFollows`) and claimable (`claimedByUserId`, via `claims`).
 
 export const venues = pgTable("venues", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull().unique(),
+  // Readable, crawlable URL key (/salle/le-theatre-x). Nullable for now: unlike
+  // `events` (created fresh with a seed), `venues` already has populated rows in
+  // every environment. This lands nullable, gets backfilled once deployed by
+  // `packages/db/seed/backfill-venue-slugs.ts`, and only THEN — once staging is
+  // confirmed backfilled — does a small follow-up PR tighten this to
+  // notNull().unique() with its own migration. Splitting into two PRs (rather
+  // than two migrations in one PR) matters here: this repo applies all pending
+  // migrations in a single `npm run db:migrate` invocation, so a NOT NULL
+  // migration committed alongside this one would run before the backfill has a
+  // chance to execute, and fail against staging's existing venue rows.
+  slug: text("slug").unique(),
   address: text("address"),
+  bio: text("bio"), // free-text description; self-editable once claimed
+  imageUrl: text("image_url"), // venue photo; same convention as events.imageUrl
+  officialUrl: text("official_url"), // the venue's own website
+  // Set once a claim (see `claims`) is approved. Nullable = unclaimed.
+  claimedByUserId: text("claimed_by_user_id").references(() => user.id, {
+    onDelete: "set null",
+  }),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -61,6 +82,57 @@ export const performances = pgTable("performances", {
   startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---------- Artists (a performer/company appearing in a show) ----------
+// Always-on like `venues`: auto-populated by the worker's resolve step from
+// `sourceEvents.performers` (Ticketmaster only, for now) and by the seed's
+// `events.author`/`director` fields — see resolve.ts and seed/index.ts. Linked
+// to events via `eventArtists` (many-to-many). Own page at /artiste/[slug],
+// followable (`artistFollows`) and claimable (`claimedByUserId`, via `claims`).
+// No person/company distinction in v1 — mirrors how `events.director` already
+// conflates "metteur en scène" and "compagnie" in one free-text column.
+
+export const artists = pgTable("artists", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull().unique(),
+  // Created fresh (no populated rows to migrate), so notNull().unique() from
+  // day one — unlike `venues.slug`, which needs a backfill window.
+  slug: text("slug").notNull().unique(),
+  bio: text("bio"),
+  imageUrl: text("image_url"),
+  officialUrl: text("official_url"),
+  claimedByUserId: text("claimed_by_user_id").references(() => user.id, {
+    onDelete: "set null",
+  }),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ---------- Event ↔ Artist (many-to-many cast/company link) ----------
+// One row per (event, artist) pairing — a show can list several artists, and an
+// artist appears across many shows over time. Surrogate id, like `performances`
+// (the other event-fan-out join table) — not a composite PK like `reactions`/
+// `follows`/`comments`, which encode a *per-user* uniqueness that doesn't apply
+// here. Unlike `performances` (whose dedup is app-side), the unique constraint
+// below is enforced by the DB: there's no legitimate duplicate cast-credit row.
+
+export const eventArtists = pgTable(
+  "event_artists",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    artistId: uuid("artist_id")
+      .notNull()
+      .references(() => artists.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("event_artists_event_artist_unique").on(t.eventId, t.artistId),
+    index("event_artists_artist_id_idx").on(t.artistId),
+  ],
+);
 
 // ============================================================================
 // Ingestion (the worker's own namespace — kept separate from the product tables)
@@ -135,6 +207,7 @@ export const ingestionRuns = pgTable("ingestion_runs", {
   eventsUpserted: integer("events_upserted").notNull().default(0),
   venuesUpserted: integer("venues_upserted").notNull().default(0),
   performancesUpserted: integer("performances_upserted").notNull().default(0),
+  artistsUpserted: integer("artists_upserted").notNull().default(0),
   error: text("error"),
   metrics: jsonb("metrics"), // coverage snapshot at run end (see metrics.ts)
 });
@@ -231,6 +304,40 @@ export const follows = pgTable(
   (t) => [primaryKey({ columns: [t.followerId, t.followeeId] })],
 );
 
+// ---------- Venue / artist follows (one-way user → venue / user → artist) ----------
+// Same shape as `follows`, duplicated per followable kind rather than made
+// polymorphic: Postgres FKs can't target "users OR venues OR artists" with one
+// column, and a (targetType, targetId) design would lose referential integrity.
+// Feeds the future recommendation engine with supply-side signal.
+
+export const venueFollows = pgTable(
+  "venue_follows",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    venueId: uuid("venue_id")
+      .notNull()
+      .references(() => venues.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.venueId] })],
+);
+
+export const artistFollows = pgTable(
+  "artist_follows",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    artistId: uuid("artist_id")
+      .notNull()
+      .references(() => artists.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.artistId] })],
+);
+
 // ---------- Comments (a user's review of a show) ----------
 // One editable comment per (user, event) — the user's personal note/review,
 // shown in Mon Espace and, later, to their followers in Ma communauté. Writing
@@ -269,3 +376,33 @@ export const devNotes = pgTable("dev_notes", {
   userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---------- Claims (venue/artist ownership claim requests) ----------
+// A user asserts "this venue/artist page is mine". Goes into a queue Théo
+// reviews by hand — manual verification only in v1, no email-domain
+// auto-matching — mirroring `devNotes`'s shape: a status flipped by a human,
+// no roles/permissions system. `targetId` can't be a typed FK since it spans
+// two tables (`venues`, `artists`) depending on `targetType`; accepted because
+// this table is low-volume and admin-only, and app code validates the
+// reference at insert time. Reviewed at /dev/claims (see getDevAccess()).
+
+export const claims = pgTable(
+  "claims",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    targetType: text("target_type").notNull(), // 'venue' | 'artist'
+    targetId: uuid("target_id").notNull(), // venues.id or artists.id, by targetType
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    message: text("message").notNull(), // free-text proof/context from the claimant
+    status: text("status").notNull().default("pending"), // pending | approved | rejected
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    decidedBy: text("decided_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (t) => [
+    index("claims_target_idx").on(t.targetType, t.targetId),
+    index("claims_status_idx").on(t.status),
+  ],
+);
