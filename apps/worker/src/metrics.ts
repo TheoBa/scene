@@ -1,4 +1,4 @@
-import { events, performances, sourceEvents, venues, type Db } from "@scenes/db";
+import { artists, events, eventArtists, performances, sourceEvents, venues, type Db } from "@scenes/db";
 import { count, sql } from "drizzle-orm";
 
 /**
@@ -34,7 +34,8 @@ export interface MetricsSnapshot {
       Coverage
     >;
   };
-  venues: { total: number; address: Coverage };
+  venues: { total: number; address: Coverage; bio: Coverage; imageUrl: Coverage; claimed: Coverage };
+  artists: { total: number; bio: Coverage; imageUrl: Coverage; claimed: Coverage; linkedToEvent: Coverage };
   performances: { total: number; upcoming: number; past: number };
   sources: SourceStats[];
 }
@@ -60,8 +61,27 @@ export async function computeMetrics(db: Db): Promise<MetricsSnapshot> {
     .from(events);
 
   const [vn] = await db
-    .select({ total: count(), address: count(venues.address) })
+    .select({
+      total: count(),
+      address: count(venues.address),
+      bio: count(venues.bio),
+      imageUrl: count(venues.imageUrl),
+      claimed: count(venues.claimedByUserId),
+    })
     .from(venues);
+
+  const [ar] = await db
+    .select({
+      total: count(),
+      bio: count(artists.bio),
+      imageUrl: count(artists.imageUrl),
+      claimed: count(artists.claimedByUserId),
+    })
+    .from(artists);
+
+  const [linkedArtists] = await db
+    .select({ linked: sql<number>`count(distinct ${eventArtists.artistId})::int` })
+    .from(eventArtists);
 
   const [pf] = await db
     .select({
@@ -94,7 +114,20 @@ export async function computeMetrics(db: Db): Promise<MetricsSnapshot> {
         tags: cov(ev.tags, ev.total),
       },
     },
-    venues: { total: vn.total, address: cov(vn.address, vn.total) },
+    venues: {
+      total: vn.total,
+      address: cov(vn.address, vn.total),
+      bio: cov(vn.bio, vn.total),
+      imageUrl: cov(vn.imageUrl, vn.total),
+      claimed: cov(vn.claimed, vn.total),
+    },
+    artists: {
+      total: ar.total,
+      bio: cov(ar.bio, ar.total),
+      imageUrl: cov(ar.imageUrl, ar.total),
+      claimed: cov(ar.claimed, ar.total),
+      linkedToEvent: cov(linkedArtists.linked, ar.total),
+    },
     performances: { total: pf.total, upcoming: pf.upcoming, past: pf.total - pf.upcoming },
     sources: bySource.map((s) => ({
       source: s.source,
@@ -111,13 +144,19 @@ export async function computeMetrics(db: Db): Promise<MetricsSnapshot> {
 export function logMetrics(m: MetricsSnapshot): void {
   const pct = (c: Coverage) => `${Math.round(c.pct * 100)}%`;
   console.log(
-    `[metrics] ${m.events.total} events · ${m.venues.total} venues · ${m.performances.total} ` +
-      `performances (${m.performances.upcoming} upcoming)`,
+    `[metrics] ${m.events.total} events · ${m.venues.total} venues · ${m.artists.total} artists · ` +
+      `${m.performances.total} performances (${m.performances.upcoming} upcoming)`,
   );
   console.log(
     `[metrics] coverage — posters ${pct(m.events.coverage.imageUrl)} · ` +
       `author ${pct(m.events.coverage.author)} · director ${pct(m.events.coverage.director)} · ` +
       `duration ${pct(m.events.coverage.durationMinutes)} · address ${pct(m.venues.address)}`,
+  );
+  console.log(
+    `[metrics] venue pages — bio ${pct(m.venues.bio)} · photo ${pct(m.venues.imageUrl)} · ` +
+      `claimed ${pct(m.venues.claimed)} · artist pages — bio ${pct(m.artists.bio)} · ` +
+      `photo ${pct(m.artists.imageUrl)} · claimed ${pct(m.artists.claimed)} · ` +
+      `linked to a show ${pct(m.artists.linkedToEvent)}`,
   );
   for (const s of m.sources) {
     console.log(

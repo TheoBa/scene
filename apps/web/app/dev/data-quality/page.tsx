@@ -59,6 +59,7 @@ export default async function DataQualityPage() {
           <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Stat label="Spectacles" value={metrics.events.total} />
             <Stat label="Lieux" value={metrics.venues.total} />
+            <Stat label="Artistes" value={metrics.artists.total} />
             <Stat label="Représentations" value={metrics.performances.total} />
             <Stat label="À venir" value={metrics.performances.upcoming} />
           </section>
@@ -73,6 +74,32 @@ export default async function DataQualityPage() {
                 <Bar key={key} label={label} c={metrics.events.coverage[key]} />
               ))}
               <Bar label="Adresse (lieux)" c={metrics.venues.address} />
+            </div>
+          </section>
+
+          {/* Venue / artist page completeness */}
+          <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+            <h2 className="text-sm font-semibold text-black/70">
+              Pages salle / artiste
+            </h2>
+            <div className="mt-4 grid gap-6 sm:grid-cols-2">
+              <div className="space-y-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-black/40">
+                  Salles
+                </h3>
+                <Bar label="Bio" c={metrics.venues.bio} />
+                <Bar label="Photo" c={metrics.venues.imageUrl} />
+                <Bar label="Revendiquées" c={metrics.venues.claimed} />
+              </div>
+              <div className="space-y-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-black/40">
+                  Artistes
+                </h3>
+                <Bar label="Bio" c={metrics.artists.bio} />
+                <Bar label="Photo" c={metrics.artists.imageUrl} />
+                <Bar label="Revendiqués" c={metrics.artists.claimed} />
+                <Bar label="Liés à un spectacle" c={metrics.artists.linkedToEvent} />
+              </div>
             </div>
           </section>
 

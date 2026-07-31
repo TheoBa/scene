@@ -65,6 +65,7 @@ async function runAll(db: Db): Promise<void> {
     counts.eventsUpserted = res.eventsUpserted;
     counts.venuesUpserted = res.venuesUpserted;
     counts.performancesUpserted = res.performancesUpserted;
+    counts.artistsUpserted = res.artistsUpserted;
     const metrics = await stepMetrics(db);
     await finishRun(db, runId, { status: "success", counts, metrics });
   } catch (err) {

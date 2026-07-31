@@ -32,7 +32,8 @@ export interface MetricsSnapshot {
       Coverage
     >;
   };
-  venues: { total: number; address: Coverage };
+  venues: { total: number; address: Coverage; bio: Coverage; imageUrl: Coverage; claimed: Coverage };
+  artists: { total: number; bio: Coverage; imageUrl: Coverage; claimed: Coverage; linkedToEvent: Coverage };
   performances: { total: number; upcoming: number; past: number };
   sources: SourceStats[];
 }
@@ -49,6 +50,7 @@ export interface RunRow {
   eventsUpserted: number;
   venuesUpserted: number;
   performancesUpserted: number;
+  artistsUpserted: number;
   error: string | null;
 }
 
@@ -74,6 +76,7 @@ export async function getDataQuality(): Promise<DataQuality> {
       eventsUpserted: ingestionRuns.eventsUpserted,
       venuesUpserted: ingestionRuns.venuesUpserted,
       performancesUpserted: ingestionRuns.performancesUpserted,
+      artistsUpserted: ingestionRuns.artistsUpserted,
       error: ingestionRuns.error,
     })
     .from(ingestionRuns)
