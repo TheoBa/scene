@@ -8,6 +8,7 @@ import { formatDateTime } from "@/lib/format";
 import { posterSrc } from "@/lib/poster";
 import { SiteHeader } from "@/components/SiteHeader";
 import { FollowButton } from "@/components/FollowButton";
+import { ClaimForm } from "@/components/ClaimForm";
 import { followVenue, unfollowVenue } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -138,7 +139,19 @@ export default async function VenuePage({
         )}
       </section>
 
-      {/* Claim CTA lands here in a later slice. */}
+      {!venue.claimedByUserId && (
+        <section className="mt-12 flex flex-col items-center gap-3 text-center">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-black/40">
+            Vous gérez cette salle ?
+          </h2>
+          <ClaimForm
+            targetType="venue"
+            targetId={venue.id}
+            targetSlug={venue.slug}
+            signedIn={!!session}
+          />
+        </section>
+      )}
     </div>
   );
 }
