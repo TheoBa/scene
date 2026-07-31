@@ -2,18 +2,29 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { follow, unfollow } from "@/app/communaute/actions";
 
-// Suivre / Suivi toggle. Logged-out clicks route to sign-in; otherwise it
-// optimistically flips and persists via the follow/unfollow actions.
+export type FollowActionResult =
+  | { ok: true; following: boolean }
+  | { ok: false; error: string };
+
+// Suivre / Suivi toggle — generic over what's being followed (a person's
+// pseudo, a venue's slug, an artist's slug): the three flows share all of the
+// interaction logic and differ only in which server action gets called, so
+// this takes the actions as props instead of being forked per follow kind.
+// Logged-out clicks route to sign-in; otherwise it optimistically flips and
+// persists via the given actions.
 export function FollowButton({
-  pseudo,
+  id,
   initialFollowing,
   signedIn,
+  onFollow,
+  onUnfollow,
 }: {
-  pseudo: string;
+  id: string;
   initialFollowing: boolean;
   signedIn: boolean;
+  onFollow: (id: string) => Promise<FollowActionResult>;
+  onUnfollow: (id: string) => Promise<FollowActionResult>;
 }) {
   const router = useRouter();
   const [following, setFollowing] = useState(initialFollowing);
@@ -27,7 +38,7 @@ export function FollowButton({
     const next = !following;
     setFollowing(next);
     startTransition(async () => {
-      const res = next ? await follow(pseudo) : await unfollow(pseudo);
+      const res = next ? await onFollow(id) : await onUnfollow(id);
       if (res.ok) setFollowing(res.following);
       else setFollowing(!next);
     });
