@@ -68,7 +68,9 @@ V0 implemented (Supabase): `scenes` (pieces), `salles` (venues, geocoded), `prof
 - `performances` — `id`, `event_id → events.id`, `venue_id → venues.id`, `starts_at` (one row per individual showing, so a run of many nights — or a show touring several venues — is modelled correctly; `starts_at` is a full timestamp and carries the showtime)
 - `users` — `id`, `pseudo` (unique)
 
-Artists, ratings/comments, ticketing, geocoding (`lat`/`lng`) and provenance (`source`/`source_ref`) columns are deferred until the features that need them, and until automated ingestion returns. Data is filled manually via a versioned seed script (`npm run db:seed`) — no ingestion pipeline in the POC.
+Ratings/comments, ticketing, geocoding (`lat`/`lng`) and provenance (`source`/`source_ref`) columns are deferred until the features that need them. Data is filled manually via a versioned seed script (`npm run db:seed`) and, for Ticketmaster, an ingestion worker.
+
+**Artists (added 2026-07-30):** `artists` (`id`, `name` unique, `slug` unique, `bio`, `image_url`, `official_url`, `claimed_by_user_id`, `claimed_at`) plus `event_artists` (many-to-many event↔artist link). No person/company distinction — a director credit and a compagnie name are both plain `artists` rows, mirroring how `events.director` already conflates the two. Auto-populated from the seed's `author`/`director` fields and from Ticketmaster's `performers[]` (the only source that currently supplies it). `venues` gained the same `slug`/`bio`/`image_url`/`official_url`/`claimed_by_user_id`/`claimed_at` shape, making venue and artist pages symmetric.
 
 ## 7. Data sourcing & legal strategy
 
@@ -153,12 +155,14 @@ Vibe-coded first iteration by CEO (mostly frontend + tiny backend from manual sc
 | 2026-07-23 | **Ma communauté = one-way follow** graph (not mutual friend-request), built in **Phase 2**; connect via **pseudo search + shareable invite link**. Phase 1 ships a placeholder tab. | Follow is lower-friction and faster to build for the POC; the schema is shaped so mutual-accept can be layered on later if wanted. Community feed reuses the `comments` primitive filtered by who you follow, so it's built after Mon Espace. |
 | 2026-07-28 | **theatre.info** (Etalab open licence) is the intended **canonical catalogue** source; API key requested as a partner. See `ingestion_worker.md`. | Openly-licensed, reusable, our exact domain (live theatre incl. Paris), commercial use permitted — safe to mirror into our own catalogue with attribution. |
 | 2026-07-28 | **Ticketmaster Discovery API** is a **throwaway kickstart**, not a long-term source: use it to seed an initial Paris catalogue so we can **apply for the Awin / France Billet affiliate partnership** (chicken-and-egg: approval needs a live catalogue). Expected to be dropped by launch. See `ingestion_ticketmaster.md`. | TM data is proprietary (ToS + branding guide), not openly reusable — unsuitable as a permanent mirror, but fine as a short-lived bootstrap. TM owns a majority of France Billet, so its Paris inventory overlaps the Awin feed we actually want commission from. |
+| 2026-07-30 | Venue & artist pages ship now (pulled forward from Phase 4) as **always-on** (auto-generated from ingestion/seed, not created by a human first), **followable** (`venue_follows`/`artist_follows`, one dedicated table per followable kind rather than a polymorphic `follows` redesign — Postgres FKs can't target "user OR venue OR artist" cleanly), and **claimable** via a manual-review-only queue (`claims`, triaged at `/dev/claims` reusing the `devNotes`/`getDevAccess` allowlist pattern — no email-domain auto-verification), with **minimal self-edit** post-claim (bio/photo/official link only). | The email-domain verification originally sketched in the roadmap was dropped: a V1 audience is too small to need automation, and manual review is cheap to run by hand. Self-edit is deliberately narrow — full programme/show management, a general roles/permissions model, and an audit trail on edits are real Phase-4 items, explicitly deferred, not lost. |
 
 ## 14. Glossary
 
 - **Event (formerly Piece)** — a theatre show/production; the central catalogue entity (V1 table: `events`; V0 table: `scenes`). Its venue(s) and dates live in `performances`.
 - **Performance** — a single dated showing of an event at a venue (V1 table: `performances`; `event_id` + `venue_id` + `starts_at`).
-- **Venue / Salle** — a theatre or performance space.
+- **Venue / Salle** — a theatre or performance space. Own page at `/salle/[slug]`; followable, claimable.
+- **Artist / Artiste** — a performer, director, or company credited on a show (V1 table: `artists`, linked via `event_artists`). Own page at `/artiste/[slug]`; followable, claimable. No person/company distinction.
 - **Carnet** — a user notebook/list of pieces (shareable, V0 feature).
 - **Explorer tab** — the taste-based discovery surface.
 - **Affiliation** — affiliate/referral commission on ticketing redirects.

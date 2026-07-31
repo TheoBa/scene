@@ -52,7 +52,7 @@ Three things gate everything else, in this order: **can we deploy it** (phase 0)
 **Goal:** anonymous users can find and read about any show. This is the acquisition engine — every piece page is a landing page.
 
 - Piece page (`/piece/[slug]`) — SSR, structured data (schema.org `Event`), synopsis, venue, dates, cast
-- Venue page (`/salle/[slug]`), Artist page (`/artiste/[slug]`)
+- ✅ Venue page (`/salle/[slug]`), Artist page (`/artiste/[slug]`) — auto-generated from ingestion/seed, not requiring a human to create them first; also followable and claimable (pulled forward from Phase 4, see below)
 - Home / listing with filters (date, genre, arrondissement)
 - Map view (port Leaflet work from V0)
 - Search
@@ -83,11 +83,13 @@ Three things gate everything else, in this order: **can we deploy it** (phase 0)
 
 **Goal:** supply-side value, and better first-party data than any feed.
 
-- Claim flow: venue/artist claims their auto-generated page (verification by email domain or manual review)
-- Venue dashboard: edit venue info, manage its programme, add/update pieces
-- Artist profile editing; link self to pieces (V0 had a proposal form — formalize it)
-- Roles/permissions model
-- Audit trail on edits (feeds back into ingestion as a trusted source)
+- ✅ Claim flow: venue/artist claims their auto-generated page. **Manual review only** (a free-text request triaged by hand at `/dev/claims`, mirroring the `/dev/notes` pattern) — the email-domain auto-verification originally sketched here was dropped as unnecessary complexity for a V1 audience too small to need automation.
+- ✅ Minimal self-edit once claimed: bio, photo, official link only.
+- Still deferred from this phase:
+  - Venue dashboard: edit venue info, manage its programme, add/update pieces (self-service show/performance management)
+  - Artist profile editing beyond bio/photo/link; link self to pieces (V0 had a proposal form — formalize it)
+  - A general roles/permissions model (today it's just `claimedByUserId` — a single pointer, not a role system)
+  - Audit trail on edits (feeds back into ingestion as a trusted source)
 
 **Exit criteria:** venues maintain their own pages; first-party data outranks feed data in the merge logic.
 
