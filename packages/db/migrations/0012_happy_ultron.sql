@@ -1,0 +1,1 @@
+ALTER TABLE "dev_notes" ALTER COLUMN "status" SET DEFAULT 'untackled';

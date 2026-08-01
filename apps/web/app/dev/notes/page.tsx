@@ -19,8 +19,8 @@ export default async function DevNotesPage() {
   if (!dev) notFound();
 
   const notes = await getDevNotes();
-  const open = notes.filter((n) => n.status !== "processed");
-  const processed = notes.filter((n) => n.status === "processed");
+  const open = notes.filter((n) => n.status !== "done");
+  const processed = notes.filter((n) => n.status === "done");
 
   return (
     <div className="mx-auto min-h-screen max-w-3xl px-6 py-12">

@@ -468,6 +468,44 @@ defaults to `/app/data/posters` inside the Dockerfile (`ENV
 POSTER_UPLOADS_DIR=/app/data/posters`), which is exactly the path the volume
 above mounts over.
 
+## S7. Dev-notes API token (for the plan-from-notes Claude Code skill)
+
+`/api/dev/notes` lets the `plan-from-notes` skill (`.claude/skills/plan-from-notes/`)
+read and update the `dev_notes` backlog over HTTPS from Claude Code running on the
+Mac Mini, instead of needing the temporary-public-DB dance in S5 every time. The
+route is off by default — it 404/401s until `DEV_NOTES_API_TOKEN` is set.
+
+**Do this once:**
+
+1. **macOS (Mac Mini)** — generate a token:
+   ```bash
+   openssl rand -hex 32
+   ```
+2. **Coolify UI** — open the application whose Dockerfile Location is
+   `/apps/web/Dockerfile` and whose domain is `scenes.badoz.org` (same one from
+   S3) → **Environment Variables** → **+ Add** → key `DEV_NOTES_API_TOKEN`,
+   value = the token from step 1 → **Save**.
+3. **Redeploy** the web app (env var changes don't apply to a running
+   container — click **Deploy** on the application page).
+4. **macOS (Mac Mini), repo root** — give the skill the same token in a
+   gitignored file:
+   ```bash
+   cat > .env.dev-notes <<'EOF'
+   DEV_NOTES_API_URL=https://scenes.badoz.org
+   DEV_NOTES_API_TOKEN=<same token as step 1>
+   EOF
+   ```
+
+Verify:
+```bash
+set -a; . ./.env.dev-notes; set +a
+curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $DEV_NOTES_API_TOKEN" \
+  "$DEV_NOTES_API_URL/api/dev/notes"
+```
+Expect `200`. `401` means the token doesn't match what's in Coolify (or the app
+hasn't redeployed since step 3 yet); `404` means `DEV_NOTES_API_TOKEN` isn't set
+in Coolify at all.
+
 ---
 
 ## Phase-0 exit checklist
