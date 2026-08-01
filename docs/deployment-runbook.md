@@ -442,10 +442,10 @@ path, every uploaded poster is silently lost the next time Coolify rebuilds
 the web app.
 
 **Do this once, before the first real upload** (Coolify UI — same web app
-resource created in S3):
+resource created in S3: the application whose Dockerfile Location is
+`/apps/web/Dockerfile` and whose domain is `scenes.badoz.org`):
 
-1. Open the **scenes-web** application → **Storages** tab (left sidebar) →
-   **+ Add**.
+1. Open that application → **Storages** tab (left sidebar) → **+ Add**.
 2. Fill in:
 
    | Field | Value |
