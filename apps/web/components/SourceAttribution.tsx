@@ -2,8 +2,8 @@
 // wherever their data is displayed, and traffic must flow back to their buy
 // URL — see docs/ingestion_ticketmaster.md §2. Rendering nothing when `source`
 // is null keeps this generic (any future ingestion source can reuse it by
-// setting `events.sourceAttribution`), even though Ticketmaster is the only
-// source that populates it today.
+// setting `events.ticketSource`), even though Ticketmaster is the only source
+// that populates it today.
 //
 // When a `ticketUrl` is present, the badge itself IS the outbound link — one
 // component doubling as both the attribution credit and the buy-link anchor,
