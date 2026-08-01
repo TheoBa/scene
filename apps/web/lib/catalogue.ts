@@ -16,7 +16,7 @@ export interface ShowCard {
   nextVenue: string;
   upcomingCount: number;
   ticketUrl: string | null;
-  sourceAttribution: string | null;
+  ticketSource: string | null;
 }
 
 export interface ShowDetail {
@@ -30,7 +30,7 @@ export interface ShowDetail {
   imageUrl: string | null;
   officialUrl: string | null;
   ticketUrl: string | null;
-  sourceAttribution: string | null;
+  ticketSource: string | null;
   // venueSlug is nullable: venues.slug is still nullable on the column until a
   // follow-up migration tightens it (see schema.ts) — a venue seen before that
   // backfill runs would render its name as plain text instead of a link.
@@ -51,7 +51,7 @@ export async function listUpcomingShows(): Promise<ShowCard[]> {
       startsAt: performances.startsAt,
       venue: venues.name,
       ticketUrl: events.ticketUrl,
-      sourceAttribution: events.sourceAttribution,
+      ticketSource: events.ticketSource,
     })
     .from(performances)
     .innerJoin(events, eq(performances.eventId, events.id))
@@ -75,7 +75,7 @@ export async function listUpcomingShows(): Promise<ShowCard[]> {
         nextVenue: r.venue,
         upcomingCount: 1,
         ticketUrl: r.ticketUrl,
-        sourceAttribution: r.sourceAttribution,
+        ticketSource: r.ticketSource,
       });
     }
   }
@@ -99,7 +99,7 @@ export async function getShowBySlug(slug: string): Promise<ShowDetail | null> {
       imageUrl: events.imageUrl,
       officialUrl: events.officialUrl,
       ticketUrl: events.ticketUrl,
-      sourceAttribution: events.sourceAttribution,
+      ticketSource: events.ticketSource,
     })
     .from(events)
     .where(eq(events.slug, slug))
@@ -138,7 +138,7 @@ export async function getShowBySlug(slug: string): Promise<ShowDetail | null> {
     imageUrl: event.imageUrl,
     officialUrl: event.officialUrl,
     ticketUrl: event.ticketUrl,
-    sourceAttribution: event.sourceAttribution,
+    ticketSource: event.ticketSource,
     performances: perfs,
     artists: linkedArtists,
   };

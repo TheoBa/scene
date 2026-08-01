@@ -66,10 +66,17 @@ export const events = pgTable("events", {
   imageUrl: text("image_url"), // poster; a bare filename for now, not rendered yet
   officialUrl: text("official_url"), // the venue's official page for the show
   ticketUrl: text("ticket_url"), // buy/detail link (today: TM's event.url only)
-  // Set only when imageUrl/ticketUrl above were filled from an ingestion source
-  // rather than curated by hand — e.g. 'ticketmaster'. One column, not per-field:
-  // today only Ticketmaster supplies both fields together, so a single marker is
-  // enough for v1 (see enrich.ts).
+  // Per-field provenance — set only when that specific column was filled from an
+  // ingestion source rather than curated by hand, e.g. 'ticketmaster' or 'manual'.
+  // Kept separate (not one shared column) because a show can be curated in one
+  // field and ingestion-filled in the other, e.g. a hand-picked poster on a show
+  // that also gets a real Ticketmaster buy link — collapsing them into one column
+  // previously caused a real bug where a poster-specific cleanup script nuked a
+  // curated poster after only the ticket link had been ingestion-filled.
+  imageSource: text("image_source"),
+  ticketSource: text("ticket_source"),
+  // TODO(next migration): drop once fix-poster-provenance has backfilled the two
+  // columns above on every environment.
   sourceAttribution: text("source_attribution"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

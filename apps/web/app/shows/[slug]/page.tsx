@@ -118,7 +118,7 @@ export default async function ShowPage({
               </div>
             )}
 
-            {(show.officialUrl || show.sourceAttribution) && (
+            {(show.officialUrl || show.ticketSource) && (
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 {show.officialUrl && (
                   <a
@@ -130,7 +130,7 @@ export default async function ShowPage({
                     Site officiel du spectacle ↗
                   </a>
                 )}
-                <SourceAttribution source={show.sourceAttribution} ticketUrl={show.ticketUrl} />
+                <SourceAttribution source={show.ticketSource} ticketUrl={show.ticketUrl} />
               </div>
             )}
           </div>

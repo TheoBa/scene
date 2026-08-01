@@ -43,7 +43,8 @@ export async function enrichResolvedSourceEvents(
         id: events.id,
         imageUrl: events.imageUrl,
         ticketUrl: events.ticketUrl,
-        sourceAttribution: events.sourceAttribution,
+        imageSource: events.imageSource,
+        ticketSource: events.ticketSource,
       })
       .from(events)
       .where(inArray(events.id, eventIds));
@@ -59,13 +60,17 @@ export async function enrichResolvedSourceEvents(
       const ticketFilled = current.ticketUrl === null && nextTicketUrl !== null;
       if (!imageFilled && !ticketFilled) continue;
 
-      const nextAttribution = current.sourceAttribution ?? c.source;
+      // Stamped independently per field — a show can be curated in one field
+      // and ingestion-filled in the other (see schema.ts comment).
+      const nextImageSource = imageFilled ? c.source : current.imageSource;
+      const nextTicketSource = ticketFilled ? c.source : current.ticketSource;
       await tx
         .update(events)
         .set({
           imageUrl: nextImageUrl,
           ticketUrl: nextTicketUrl,
-          sourceAttribution: nextAttribution,
+          imageSource: nextImageSource,
+          ticketSource: nextTicketSource,
         })
         .where(eq(events.id, c.eventId));
       result.eventsEnriched += 1;
@@ -76,7 +81,8 @@ export async function enrichResolvedSourceEvents(
         id: current.id,
         imageUrl: nextImageUrl,
         ticketUrl: nextTicketUrl,
-        sourceAttribution: nextAttribution,
+        imageSource: nextImageSource,
+        ticketSource: nextTicketSource,
       });
     }
 
