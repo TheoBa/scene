@@ -53,10 +53,11 @@ const DEFAULTS: Omit<TicketmasterOptions, "budget"> = {
 };
 
 // ---- Minimal shape of the bits of a Discovery event we read (rest kept in `raw`) ----
-interface TmImage {
+export interface TmImage {
   url?: string;
   width?: number;
   height?: number;
+  fallback?: boolean; // TM's own generic stock photo for the genre/venue, not a real poster
 }
 interface TmEvent {
   id: string;
@@ -114,12 +115,17 @@ function windowQuery(o: TicketmasterOptions, key: string, start: Date, end: Date
 
 const buildUrl = (q: Record<string, string>): string => `${BASE_URL}?${new URLSearchParams(q).toString()}`;
 
-/** Widest image is the closest to a usable poster; TM mixes many crops/sizes. */
-function pickImage(images: TmImage[] | undefined): string | null {
+/**
+ * Widest non-fallback image is the closest to a usable poster; TM mixes many
+ * crops/sizes. `fallback: true` means TM had no real image for this event and
+ * substituted a generic stock photo for its genre (e.g. a stock "spotlights"
+ * shot for every unposted comedy show) — never treat that as the poster.
+ */
+export function pickImage(images: TmImage[] | undefined): string | null {
   if (!images?.length) return null;
   let best: TmImage | undefined;
   for (const img of images) {
-    if (!img.url) continue;
+    if (!img.url || img.fallback) continue;
     if (!best || (img.width ?? 0) > (best.width ?? 0)) best = img;
   }
   return best?.url ?? null;
