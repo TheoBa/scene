@@ -15,6 +15,8 @@ export interface ShowCard {
   nextStartsAt: Date; // soonest upcoming performance
   nextVenue: string;
   upcomingCount: number;
+  ticketUrl: string | null;
+  sourceAttribution: string | null;
 }
 
 export interface ShowDetail {
@@ -27,6 +29,8 @@ export interface ShowDetail {
   durationMinutes: number | null;
   imageUrl: string | null;
   officialUrl: string | null;
+  ticketUrl: string | null;
+  sourceAttribution: string | null;
   // venueSlug is nullable: venues.slug is still nullable on the column until a
   // follow-up migration tightens it (see schema.ts) — a venue seen before that
   // backfill runs would render its name as plain text instead of a link.
@@ -46,6 +50,8 @@ export async function listUpcomingShows(): Promise<ShowCard[]> {
       imageUrl: events.imageUrl,
       startsAt: performances.startsAt,
       venue: venues.name,
+      ticketUrl: events.ticketUrl,
+      sourceAttribution: events.sourceAttribution,
     })
     .from(performances)
     .innerJoin(events, eq(performances.eventId, events.id))
@@ -68,6 +74,8 @@ export async function listUpcomingShows(): Promise<ShowCard[]> {
         nextStartsAt: r.startsAt,
         nextVenue: r.venue,
         upcomingCount: 1,
+        ticketUrl: r.ticketUrl,
+        sourceAttribution: r.sourceAttribution,
       });
     }
   }
@@ -90,6 +98,8 @@ export async function getShowBySlug(slug: string): Promise<ShowDetail | null> {
       durationMinutes: events.durationMinutes,
       imageUrl: events.imageUrl,
       officialUrl: events.officialUrl,
+      ticketUrl: events.ticketUrl,
+      sourceAttribution: events.sourceAttribution,
     })
     .from(events)
     .where(eq(events.slug, slug))
@@ -127,6 +137,8 @@ export async function getShowBySlug(slug: string): Promise<ShowDetail | null> {
     durationMinutes: event.durationMinutes,
     imageUrl: event.imageUrl,
     officialUrl: event.officialUrl,
+    ticketUrl: event.ticketUrl,
+    sourceAttribution: event.sourceAttribution,
     performances: perfs,
     artists: linkedArtists,
   };

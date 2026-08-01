@@ -8,6 +8,7 @@ import { getUserSeen } from "@/lib/espace";
 import { formatDateTime } from "@/lib/format";
 import { posterSrc } from "@/lib/poster";
 import { SiteHeader } from "@/components/SiteHeader";
+import { SourceAttribution } from "@/components/SourceAttribution";
 import { AvisSection } from "./AvisSection";
 import { ReactionHistogram } from "./ReactionHistogram";
 
@@ -117,15 +118,20 @@ export default async function ShowPage({
               </div>
             )}
 
-            {show.officialUrl && (
-              <a
-                href={show.officialUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-6 inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-neutral-900 transition hover:bg-white/90"
-              >
-                Site officiel du spectacle ↗
-              </a>
+            {(show.officialUrl || show.sourceAttribution) && (
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                {show.officialUrl && (
+                  <a
+                    href={show.officialUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-neutral-900 transition hover:bg-white/90"
+                  >
+                    Site officiel du spectacle ↗
+                  </a>
+                )}
+                <SourceAttribution source={show.sourceAttribution} ticketUrl={show.ticketUrl} />
+              </div>
             )}
           </div>
         </div>

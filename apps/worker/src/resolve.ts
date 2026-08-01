@@ -1,5 +1,4 @@
 import {
-  artists,
   eventArtists,
   events,
   performances,
@@ -9,7 +8,8 @@ import {
   venues,
   type Db,
 } from "@scenes/db";
-import { inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, or } from "drizzle-orm";
+import { enrichResolvedSourceEvents, type EnrichableSourceEvent } from "./enrich.js";
 
 /**
  * Resolve staging `source_events` into the canonical model. This is the
@@ -26,6 +26,17 @@ import { inArray, isNull } from "drizzle-orm";
  * upserts use conflict-do-nothing (never clobbering curated seed events that share
  * a slug), and re-runs add nothing new. Cross-source dedup (matching a new source's
  * dedupKey onto an existing event) slots in here as a later phase.
+ *
+ * Runs in two passes:
+ *  - Pass 1 (existing flow): venue/event/performance upsert for rows not yet
+ *    linked to a performance, then immediately enrich those same rows (image/
+ *    ticket/artists) via `enrich.ts` — no extra query, the data's already in
+ *    memory.
+ *  - Pass 2 (new): re-scan rows that are ALREADY linked to a performance but
+ *    still have an enrichment gap (missing poster/ticket link, or no linked
+ *    artist). This exists because artist-linking shipped after many rows were
+ *    already resolved — without this pass, those rows would be permanently
+ *    invisible to enrichment (Pass 1 only ever looks at unresolved rows).
  */
 
 export interface ResolveResult {
@@ -33,6 +44,8 @@ export interface ResolveResult {
   eventsUpserted: number;
   performancesUpserted: number;
   artistsUpserted: number;
+  artistsLinked: number;
+  eventsEnriched: number;
   linked: number; // source_events newly linked to a performance
   skipped: number; // rows missing title/venue/date — left unresolved for a later pass
 }
@@ -46,6 +59,8 @@ export async function resolveSourceEvents(db: Db): Promise<ResolveResult> {
     eventsUpserted: 0,
     performancesUpserted: 0,
     artistsUpserted: 0,
+    artistsLinked: 0,
+    eventsEnriched: 0,
     linked: 0,
     skipped: 0,
   };
@@ -60,11 +75,14 @@ export async function resolveSourceEvents(db: Db): Promise<ResolveResult> {
       genre: sourceEvents.genre,
       startsAt: sourceEvents.startsAt,
       performers: sourceEvents.performers,
+      imageUrl: sourceEvents.imageUrl,
+      sourceUrl: sourceEvents.sourceUrl,
+      source: sourceEvents.source,
     })
     .from(sourceEvents)
     .where(isNull(sourceEvents.performanceId));
 
-  if (todo.length === 0) return result;
+  if (todo.length === 0) return await runEnrichPass2(db, result);
 
   // Need a title, a venue and a date to place the record.
   const resolvable = todo.filter(
@@ -72,7 +90,11 @@ export async function resolveSourceEvents(db: Db): Promise<ResolveResult> {
       Boolean(r.title && r.venueName && r.startsAt),
   );
   result.skipped = todo.length - resolvable.length;
-  if (resolvable.length === 0) return result;
+  if (resolvable.length === 0) return runEnrichPass2(db, result);
+
+  // Populated inside the transaction below (row id → resolved eventId), read
+  // afterwards to build the Pass 1 enrich candidates.
+  const rowEventById = new Map<string, string>();
 
   await db.transaction(async (tx) => {
     // ---- Venues: upsert by unique name (first-seen address as a bonus) ----
@@ -129,56 +151,6 @@ export async function resolveSourceEvents(db: Db): Promise<ResolveResult> {
       .from(events)
       .where(inArray(events.slug, slugs));
     const eventIdBySlug = new Map(eventRows.map((e) => [e.slug, e.id]));
-
-    // ---- Artists: upsert by unique name from sourceEvents.performers ----
-    // Only the Ticketmaster adapter populates `performers` today (OpenAgenda /
-    // DATAtourisme / France Billet are still TODO stubs), so this is inherently
-    // partial coverage for now — same "unique name, onConflictDoNothing" pattern
-    // as venues, so a name that later also appears via the seed's author/director
-    // backfill collapses onto the same row for free.
-    const artistNames = new Set<string>();
-    for (const r of resolvable) {
-      for (const name of r.performers ?? []) {
-        const trimmed = name.trim();
-        if (trimmed) artistNames.add(trimmed);
-      }
-    }
-    const existingArtists = await tx
-      .select({ id: artists.id, name: artists.name, slug: artists.slug })
-      .from(artists);
-    const takenArtistSlugs = new Set(existingArtists.map((a) => a.slug));
-    const artistIdByName = new Map(existingArtists.map((a) => [a.name, a.id]));
-    const newArtistNames = [...artistNames].filter((name) => !artistIdByName.has(name));
-    if (newArtistNames.length) {
-      const insertedArtists = await tx
-        .insert(artists)
-        .values(
-          newArtistNames.map((name) => {
-            const slug = uniqueSlug(slugify(name), takenArtistSlugs);
-            takenArtistSlugs.add(slug);
-            return { name, slug };
-          }),
-        )
-        .onConflictDoNothing()
-        .returning({ id: artists.id, name: artists.name });
-      result.artistsUpserted = insertedArtists.length;
-      for (const a of insertedArtists) artistIdByName.set(a.name, a.id);
-    }
-
-    // ---- Event ↔ Artist links, deduped via the unique(eventId, artistId) constraint ----
-    const eventArtistPairs = new Map<string, { eventId: string; artistId: string }>();
-    for (const r of resolvable) {
-      const eventId = eventIdBySlug.get(slugify(r.title));
-      if (!eventId) continue;
-      for (const name of r.performers ?? []) {
-        const artistId = artistIdByName.get(name.trim());
-        if (!artistId) continue;
-        eventArtistPairs.set(`${eventId}|${artistId}`, { eventId, artistId });
-      }
-    }
-    if (eventArtistPairs.size) {
-      await tx.insert(eventArtists).values([...eventArtistPairs.values()]).onConflictDoNothing();
-    }
 
     // ---- Performances: one per distinct (event, venue, startsAt) ----
     // Seed the key→id map with performances that already exist for these events,
@@ -242,12 +214,97 @@ export async function resolveSourceEvents(db: Db): Promise<ResolveResult> {
         .where(inArray(sourceEvents.id, g.ids));
       result.linked += g.ids.length;
     }
+
+    // Stash resolved (row → eventId) pairs for the enrich call below — the
+    // transaction closure can't return early with a value here (the `return`
+    // above is the "no placeable titles" bail-out), so capture via the outer
+    // `rowEventById` map instead.
+    for (const rr of rowResolved) rowEventById.set(rr.id, rr.eventId);
   });
+
+  // ---- Enrich the rows resolved in THIS pass immediately (image/ticket/
+  // attribution + artists) — reuses the in-memory `resolvable` data, no extra
+  // query. See enrich.ts.
+  const pass1Candidates: EnrichableSourceEvent[] = [];
+  for (const r of resolvable) {
+    const eventId = rowEventById.get(r.id);
+    if (!eventId) continue;
+    pass1Candidates.push({
+      eventId,
+      imageUrl: r.imageUrl,
+      sourceUrl: r.sourceUrl,
+      performers: r.performers,
+      source: r.source,
+    });
+  }
+  const enrich1 = await enrichResolvedSourceEvents(db, pass1Candidates);
+  result.eventsEnriched += enrich1.eventsEnriched;
+  result.artistsUpserted += enrich1.artistsUpserted;
+  result.artistsLinked += enrich1.artistsLinked;
 
   console.log(
     `[resolve] ${result.linked} rows linked → ${result.eventsUpserted} new events, ` +
       `${result.venuesUpserted} new venues, ${result.performancesUpserted} new performances, ` +
       `${result.artistsUpserted} new artists (${result.skipped} skipped: missing title/venue/date)`,
   );
+
+  return runEnrichPass2(db, result);
+}
+
+/**
+ * Pass 2 — re-scan source_events already linked to a performance but still
+ * missing enrichment (no poster/ticket link on the event, or no linked
+ * artist). Self-cleaning: once an event's imageUrl/ticketUrl are filled and it
+ * has at least one linked artist, it drops out of this query on its own — no
+ * separate "enrichedAt" bookkeeping column needed at this scale. One accepted
+ * quirk: an event that will genuinely never get a ticket URL (fully
+ * hand-curated show, no online seller) stays in this query forever — harmless
+ * (cheap no-op patch), not worth engineering around (see plan).
+ */
+async function runEnrichPass2(db: Db, result: ResolveResult): Promise<ResolveResult> {
+  const rows = await db
+    .select({
+      eventId: sourceEvents.eventId,
+      imageUrl: sourceEvents.imageUrl,
+      sourceUrl: sourceEvents.sourceUrl,
+      performers: sourceEvents.performers,
+      source: sourceEvents.source,
+    })
+    .from(sourceEvents)
+    .innerJoin(events, eq(sourceEvents.eventId, events.id))
+    .leftJoin(eventArtists, eq(eventArtists.eventId, events.id))
+    .where(
+      and(
+        isNotNull(sourceEvents.performanceId),
+        or(isNull(events.imageUrl), isNull(events.ticketUrl), isNull(eventArtists.id)),
+      ),
+    );
+
+  // Dedupe to one candidate per eventId — any TM row for a show carries the
+  // same poster/url/cast in practice, so first-seen wins.
+  const byEvent = new Map<string, EnrichableSourceEvent>();
+  for (const r of rows) {
+    if (!r.eventId || byEvent.has(r.eventId)) continue;
+    byEvent.set(r.eventId, {
+      eventId: r.eventId,
+      imageUrl: r.imageUrl,
+      sourceUrl: r.sourceUrl,
+      performers: r.performers,
+      source: r.source,
+    });
+  }
+
+  const enrich2 = await enrichResolvedSourceEvents(db, [...byEvent.values()]);
+  result.eventsEnriched += enrich2.eventsEnriched;
+  result.artistsUpserted += enrich2.artistsUpserted;
+  result.artistsLinked += enrich2.artistsLinked;
+
+  if (enrich2.eventsEnriched || enrich2.artistsLinked) {
+    console.log(
+      `[resolve] pass 2: ${enrich2.eventsEnriched} already-linked events enriched, ` +
+        `${enrich2.artistsUpserted} new artists, ${enrich2.artistsLinked} artist links`,
+    );
+  }
+
   return result;
 }
