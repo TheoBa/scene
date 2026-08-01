@@ -21,7 +21,7 @@ export interface EnrichableSourceEvent {
 }
 
 export interface EnrichResult {
-  eventsEnriched: number; // events where imageUrl/ticketUrl/sourceAttribution was filled
+  eventsEnriched: number; // events where imageUrl/ticketUrl/imageSource/ticketSource was filled
   artistsUpserted: number; // new artists created while linking these rows
   artistsLinked: number; // new eventArtists rows created
 }
