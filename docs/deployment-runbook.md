@@ -431,6 +431,43 @@ Example — `venues.slug` (added by the venue/artist pages feature):
    `npm run db:migrate` again — it applies cleanly since every row now
    qualifies.
 
+## S6. Persistent storage for admin poster uploads
+
+`/dev/posters` (see `docs/scenes-knowledge-base.md`) lets an admin upload a
+poster image for a show. Those files are written to
+`POSTER_UPLOADS_DIR` (`/app/data/posters` inside the container) — **not**
+`/public`, because `/public` is baked into the Docker image at build time and
+gets wiped on every redeploy. Without a persistent volume mounted at that
+path, every uploaded poster is silently lost the next time Coolify rebuilds
+the web app.
+
+**Do this once, before the first real upload** (Coolify UI — same web app
+resource created in S3):
+
+1. Open the **scenes-web** application → **Storages** tab (left sidebar) →
+   **+ Add**.
+2. Fill in:
+
+   | Field | Value |
+   |---|---|
+   | Name | `poster-uploads` (anything descriptive) |
+   | Mount path | `/app/data/posters` |
+
+   Leave the rest at their defaults. Save.
+3. **Redeploy** the web app (Storages changes don't take effect on a running
+   container — click **Deploy** on the application page).
+
+Verify: after redeploying, uploading a poster via `/dev/posters` and then
+triggering *another* redeploy (e.g. an empty commit, or **Deploy** again)
+should still show that same poster afterwards — that's the actual test that
+the volume (not just the app) is doing its job. If a poster disappears after
+a redeploy, the volume isn't mounted — check the Storages tab again.
+
+No new env var is needed on top of this: `POSTER_UPLOADS_DIR` already
+defaults to `/app/data/posters` inside the Dockerfile (`ENV
+POSTER_UPLOADS_DIR=/app/data/posters`), which is exactly the path the volume
+above mounts over.
+
 ---
 
 ## Phase-0 exit checklist

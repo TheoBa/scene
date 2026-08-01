@@ -25,6 +25,8 @@ services:
       DATABASE_URL: postgres://scenes:scenes@postgres:5432/scenes
     ports:
       - "3000:3000"
+    volumes:
+      - poster_uploads:/app/data/posters
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,3 +44,4 @@ services:
 
 volumes:
   pgdata:
+  poster_uploads:
