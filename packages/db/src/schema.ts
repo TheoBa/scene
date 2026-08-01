@@ -65,6 +65,12 @@ export const events = pgTable("events", {
   durationMinutes: integer("duration_minutes"),
   imageUrl: text("image_url"), // poster; a bare filename for now, not rendered yet
   officialUrl: text("official_url"), // the venue's official page for the show
+  ticketUrl: text("ticket_url"), // buy/detail link (today: TM's event.url only)
+  // Set only when imageUrl/ticketUrl above were filled from an ingestion source
+  // rather than curated by hand — e.g. 'ticketmaster'. One column, not per-field:
+  // today only Ticketmaster supplies both fields together, so a single marker is
+  // enough for v1 (see enrich.ts).
+  sourceAttribution: text("source_attribution"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

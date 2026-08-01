@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 // The optional catalogue fields we track coverage on, in priority order. Keys
 // match MetricsSnapshot.events.coverage; labels are what shows in the bars.
 const FIELD_LABELS: {
-  key: "imageUrl" | "author" | "director" | "durationMinutes" | "officialUrl" | "tags";
+  key: "imageUrl" | "author" | "director" | "durationMinutes" | "officialUrl" | "tags" | "ticketUrl";
   label: string;
 }[] = [
   { key: "imageUrl", label: "Affiches" },
@@ -24,6 +24,7 @@ const FIELD_LABELS: {
   { key: "durationMinutes", label: "Durée" },
   { key: "officialUrl", label: "Lien officiel" },
   { key: "tags", label: "Tags" },
+  { key: "ticketUrl", label: "Lien billetterie" },
 ];
 
 export default async function DataQualityPage() {

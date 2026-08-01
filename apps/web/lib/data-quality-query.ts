@@ -28,7 +28,7 @@ export interface MetricsSnapshot {
   events: {
     total: number;
     coverage: Record<
-      "imageUrl" | "author" | "director" | "durationMinutes" | "officialUrl" | "tags",
+      "imageUrl" | "author" | "director" | "durationMinutes" | "officialUrl" | "tags" | "ticketUrl",
       Coverage
     >;
   };

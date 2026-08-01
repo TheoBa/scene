@@ -30,7 +30,7 @@ export interface MetricsSnapshot {
   events: {
     total: number;
     coverage: Record<
-      "imageUrl" | "author" | "director" | "durationMinutes" | "officialUrl" | "tags",
+      "imageUrl" | "author" | "director" | "durationMinutes" | "officialUrl" | "tags" | "ticketUrl",
       Coverage
     >;
   };
@@ -57,6 +57,7 @@ export async function computeMetrics(db: Db): Promise<MetricsSnapshot> {
       durationMinutes: count(events.durationMinutes),
       officialUrl: count(events.officialUrl),
       tags: sql<number>`count(*) filter (where cardinality(${events.tags}) > 0)::int`,
+      ticketUrl: count(events.ticketUrl),
     })
     .from(events);
 
@@ -112,6 +113,7 @@ export async function computeMetrics(db: Db): Promise<MetricsSnapshot> {
         durationMinutes: cov(ev.durationMinutes, ev.total),
         officialUrl: cov(ev.officialUrl, ev.total),
         tags: cov(ev.tags, ev.total),
+        ticketUrl: cov(ev.ticketUrl, ev.total),
       },
     },
     venues: {
@@ -150,7 +152,8 @@ export function logMetrics(m: MetricsSnapshot): void {
   console.log(
     `[metrics] coverage — posters ${pct(m.events.coverage.imageUrl)} · ` +
       `author ${pct(m.events.coverage.author)} · director ${pct(m.events.coverage.director)} · ` +
-      `duration ${pct(m.events.coverage.durationMinutes)} · address ${pct(m.venues.address)}`,
+      `duration ${pct(m.events.coverage.durationMinutes)} · ticket link ${pct(m.events.coverage.ticketUrl)} · ` +
+      `address ${pct(m.venues.address)}`,
   );
   console.log(
     `[metrics] venue pages — bio ${pct(m.venues.bio)} · photo ${pct(m.venues.imageUrl)} · ` +
