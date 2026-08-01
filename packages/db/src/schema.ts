@@ -75,9 +75,6 @@ export const events = pgTable("events", {
   // curated poster after only the ticket link had been ingestion-filled.
   imageSource: text("image_source"),
   ticketSource: text("ticket_source"),
-  // TODO(next migration): drop once fix-poster-provenance has backfilled the two
-  // columns above on every environment.
-  sourceAttribution: text("source_attribution"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

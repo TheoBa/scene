@@ -1,7 +1,6 @@
 import cron from "node-cron";
-import { events, type Db } from "@scenes/db";
+import { type Db } from "@scenes/db";
 import { createDb } from "@scenes/db";
-import { and, eq, isNotNull, isNull, notInArray, sql } from "drizzle-orm";
 import { ingestTicketmaster } from "./sources/ticketmaster.js";
 import { ingestOpenAgenda } from "./sources/openagenda.js";
 import { ingestDataTourisme } from "./sources/datatourisme.js";
@@ -81,88 +80,6 @@ async function runAll(db: Db): Promise<void> {
   }
 }
 
-// Same 20 slugs as packages/db/seed/index.ts's POSTER_SLUGS — the shows Théo
-// hand-curated a poster for at launch (committed at apps/web/public/posters/
-// <slug>.jpg). Kept as an inline copy rather than an import: apps/worker has
-// no dependency on packages/db/seed (dev-only tooling), same reasoning as the
-// backfill-script placement decision in docs/scenes-knowledge-base.md.
-const CURATED_POSTER_SLUGS = [
-  "anne-baquet-chante-au-paradis",
-  "l-embarras-du-choix",
-  "la-cantatrice-chauve",
-  "le-petit-chaperon-rouge",
-  "les-petites-femmes-de-maupassant",
-  "petites-miseres-de-la-vie-conjugale",
-  "bel-ami",
-  "juliette-victor-hugo-mon-fol-amour",
-  "odyssee-la-conference-musicale",
-  "le-cercle-des-poetes-disparus",
-  "les-miserables",
-  "crime-et-chatiment",
-  "le-silence-des-voix-qui-se-sont-tues",
-  "la-lecon",
-  "oublie-moi",
-  "les-justes",
-  "dernier-coup-de-ciseaux",
-  "sand-chopin",
-  "dolores",
-  "memoires-d-hadrien",
-];
-
-/**
- * One-off fix (2026-08): `events.sourceAttribution` used to be one column
- * shared between two unrelated facts (who filled imageUrl vs. who filled
- * ticketUrl). A prior one-off step ("fix-poster-fallback", now removed) did a
- * blanket `imageUrl = null WHERE sourceAttribution = 'ticketmaster'`, which
- * wrongly nuked hand-curated posters on shows that separately picked up a
- * real Ticketmaster ticket link (that's what stamped sourceAttribution, not
- * the poster). Restores those posters and backfills the new split
- * `imageSource`/`ticketSource` columns from the old shared one. Idempotent —
- * safe to run more than once.
- */
-async function stepFixPosterProvenance(db: Db): Promise<void> {
-  // Restore first, and force imageSource back to null (curated, not
-  // ingestion-filled) on these slugs — regardless of what the old shared
-  // sourceAttribution column said, since it could only have been stamped
-  // there by the ticketUrl side, never the poster.
-  let restored = 0;
-  for (const slug of CURATED_POSTER_SLUGS) {
-    const rows = await db
-      .update(events)
-      .set({ imageUrl: `${slug}.jpg`, imageSource: null })
-      .where(and(eq(events.slug, slug), isNull(events.imageUrl)))
-      .returning({ id: events.id });
-    restored += rows.length;
-  }
-  console.log(`[worker] fix-poster-provenance: ${restored} curated posters restored`);
-
-  // ticketUrl is never hand-curated (no tool sets it manually today), so
-  // backfilling from the old shared column is safe for every event.
-  const ticketBackfilled = await db
-    .update(events)
-    .set({ ticketSource: sql`${events.sourceAttribution}` })
-    .where(and(isNotNull(events.ticketUrl), isNull(events.ticketSource)))
-    .returning({ id: events.id });
-
-  // imageUrl backfill excludes the curated slugs above — everywhere else,
-  // a non-null imageUrl only ever came from ingestion.
-  const imageBackfilled = await db
-    .update(events)
-    .set({ imageSource: sql`${events.sourceAttribution}` })
-    .where(
-      and(
-        isNotNull(events.imageUrl),
-        isNull(events.imageSource),
-        notInArray(events.slug, CURATED_POSTER_SLUGS),
-      ),
-    )
-    .returning({ id: events.id });
-  console.log(
-    `[worker] fix-poster-provenance: ${imageBackfilled.length} imageSource backfilled, ` +
-      `${ticketBackfilled.length} ticketSource backfilled`,
-  );
-}
-
 async function runStep(step: string): Promise<void> {
   console.log(`[worker] step "${step}" started ${new Date().toISOString()}`);
   switch (step) {
@@ -184,11 +101,8 @@ async function runStep(step: string): Promise<void> {
     case "all":
       await runAll(db);
       break;
-    case "fix-poster-provenance":
-      await stepFixPosterProvenance(db);
-      break;
     default:
-      throw new Error(`unknown --step "${step}" (use pull | resolve | metrics | all | fix-poster-provenance)`);
+      throw new Error(`unknown --step "${step}" (use pull | resolve | metrics | all)`);
   }
   console.log(`[worker] step "${step}" finished ${new Date().toISOString()}`);
 }
