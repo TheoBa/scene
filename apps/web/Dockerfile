@@ -24,7 +24,11 @@ RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
 COPY --from=build /repo/apps/web/.next/standalone ./
 COPY --from=build /repo/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build /repo/apps/web/public ./apps/web/public
+# Admin-uploaded posters (see docs/deployment-runbook.md) — a persistent
+# volume mounts over this path in Coolify; created + chowned here so it's
+# writable even before that volume is attached (e.g. local `docker compose`).
+RUN mkdir -p /app/data/posters && chown -R nextjs:nodejs /app/data
 USER nextjs
 EXPOSE 3000
-ENV PORT=3000 HOSTNAME=0.0.0.0
+ENV PORT=3000 HOSTNAME=0.0.0.0 POSTER_UPLOADS_DIR=/app/data/posters
 CMD ["node", "apps/web/server.js"]

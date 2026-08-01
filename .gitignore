@@ -7,6 +7,9 @@ dist/
 .DS_Store
 .claude/worktrees/
 
+# Local admin poster uploads (POSTER_UPLOADS_DIR default — see .env.example)
+apps/web/.data/
+
 # Python (Phase-A ingestion tooling under scripts/)
 .venv/
 __pycache__/
