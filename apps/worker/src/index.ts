@@ -1,6 +1,8 @@
 import cron from "node-cron";
-import { createDb, type Db } from "@scenes/db";
-import { ingestTicketmaster } from "./sources/ticketmaster.js";
+import { events, sourceEvents, type Db } from "@scenes/db";
+import { createDb } from "@scenes/db";
+import { eq } from "drizzle-orm";
+import { ingestTicketmaster, pickImage, type TmImage } from "./sources/ticketmaster.js";
 import { ingestOpenAgenda } from "./sources/openagenda.js";
 import { ingestDataTourisme } from "./sources/datatourisme.js";
 import { ingestFranceBillet } from "./sources/francebillet.js";
@@ -79,6 +81,44 @@ async function runAll(db: Db): Promise<void> {
   }
 }
 
+/**
+ * One-off fix (2026-08): `pickImage()` used to ignore Ticketmaster's own
+ * `fallback: true` flag, so events with no real uploaded poster got a generic
+ * genre stock photo (e.g. "spotlights" for every unposted comedy show)
+ * promoted to `events.imageUrl` as if it were the real one. Corrects already-
+ * ingested rows from the `raw` payload already on disk — makes zero
+ * Ticketmaster API calls.
+ */
+async function stepFixPosterFallback(db: Db): Promise<void> {
+  const rows = await db
+    .select({ id: sourceEvents.id, imageUrl: sourceEvents.imageUrl, raw: sourceEvents.raw })
+    .from(sourceEvents)
+    .where(eq(sourceEvents.source, "ticketmaster"));
+
+  let sourceEventsFixed = 0;
+  for (const row of rows) {
+    const raw = row.raw as { images?: TmImage[] } | null;
+    const corrected = pickImage(raw?.images);
+    if (corrected === row.imageUrl) continue;
+    await db.update(sourceEvents).set({ imageUrl: corrected }).where(eq(sourceEvents.id, row.id));
+    sourceEventsFixed++;
+  }
+  console.log(`[worker] fix-poster-fallback: ${sourceEventsFixed} source_events corrected`);
+
+  // Clear the canonical column so the next resolve pass re-fills it from the
+  // now-corrected source_events.imageUrl above (real poster, or null — never
+  // clobbers a hand-curated event, since sourceAttribution only ever gets set
+  // by ingestion in the first place).
+  const cleared = await db
+    .update(events)
+    .set({ imageUrl: null })
+    .where(eq(events.sourceAttribution, "ticketmaster"))
+    .returning({ id: events.id });
+  console.log(`[worker] fix-poster-fallback: ${cleared.length} events.imageUrl cleared for re-enrichment`);
+
+  await resolveSourceEvents(db);
+}
+
 async function runStep(step: string): Promise<void> {
   console.log(`[worker] step "${step}" started ${new Date().toISOString()}`);
   switch (step) {
@@ -100,8 +140,11 @@ async function runStep(step: string): Promise<void> {
     case "all":
       await runAll(db);
       break;
+    case "fix-poster-fallback":
+      await stepFixPosterFallback(db);
+      break;
     default:
-      throw new Error(`unknown --step "${step}" (use pull | resolve | metrics | all)`);
+      throw new Error(`unknown --step "${step}" (use pull | resolve | metrics | all | fix-poster-fallback)`);
   }
   console.log(`[worker] step "${step}" finished ${new Date().toISOString()}`);
 }

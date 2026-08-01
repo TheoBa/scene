@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "ingest": "tsx src/index.ts --once"
+    "ingest": "tsx src/index.ts --once",
+    "fix-poster-fallback": "tsx src/index.ts --step fix-poster-fallback"
   },
   "dependencies": {
     "@scenes/db": "*",

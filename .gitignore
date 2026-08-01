@@ -5,6 +5,7 @@ node_modules/
 dist/
 *.tsbuildinfo
 .DS_Store
+.claude/worktrees/
 
 # Python (Phase-A ingestion tooling under scripts/)
 .venv/
