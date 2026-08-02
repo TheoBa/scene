@@ -9,7 +9,8 @@
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
     "seed": "tsx seed/index.ts",
-    "backfill-venue-slugs": "tsx seed/backfill-venue-slugs.ts"
+    "backfill-venue-slugs": "tsx seed/backfill-venue-slugs.ts",
+    "backfill-venue-lats-lngs": "tsx seed/backfill-venue-lats-lngs.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",

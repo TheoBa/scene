@@ -10,6 +10,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { FollowButton } from "@/components/FollowButton";
 import { ClaimForm } from "@/components/ClaimForm";
 import { ClaimedEntityEditForm } from "@/components/ClaimedEntityEditForm";
+import { VenueMapCard } from "@/components/VenueMapCard";
 import { followVenue, unfollowVenue, updateVenueProfile } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -105,6 +106,10 @@ export default async function VenuePage({
           </div>
         </div>
       </section>
+
+      {venue.lat != null && venue.lng != null && (
+        <VenueMapCard lat={venue.lat} lng={venue.lng} />
+      )}
 
       <section className="mt-12">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-black/40">

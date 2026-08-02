@@ -8,6 +8,7 @@ import {
   primaryKey,
   unique,
   index,
+  doublePrecision,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { user } from "./auth-schema";
@@ -36,6 +37,11 @@ export const venues = pgTable("venues", {
   // chance to execute, and fail against staging's existing venue rows.
   slug: text("slug").unique(),
   address: text("address"),
+  // Geocoded from `address` by `packages/db/seed/backfill-venue-lats-lngs.ts`.
+  // Nullable like `slug` above: existing venues predate this column, so it
+  // lands empty and gets filled by the backfill script, not a migration.
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
   bio: text("bio"), // free-text description; self-editable once claimed
   imageUrl: text("image_url"), // venue photo; same convention as events.imageUrl
   officialUrl: text("official_url"), // the venue's own website
