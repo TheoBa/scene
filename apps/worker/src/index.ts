@@ -8,7 +8,7 @@ import { ingestFranceBillet } from "./sources/francebillet.js";
 import { resolveSourceEvents } from "./resolve.js";
 import { computeMetrics, logMetrics, type MetricsSnapshot } from "./metrics.js";
 import { DEFAULT_BUDGET } from "./lib/http.js";
-import { emptyCounts, finishRun, openRun, type RunCounts } from "./lib/runs.js";
+import { emptyCounts, finishRun, openRun, type RunCounts, type SourceBreakdown } from "./lib/runs.js";
 
 // Best-effort: load the repo-root .env for local dev (TICKETMASTER_API_KEY,
 // DATABASE_URL). Production (Coolify) injects env vars directly, so a missing
@@ -26,10 +26,21 @@ const db = createDb();
 // (node-cron today; an external orchestrator can call each step tomorrow).
 // ---------------------------------------------------------------------------
 
+interface SourcePullResult {
+  upserted: number;
+  fetched?: number;
+  requests?: number;
+  inserted?: number;
+  enhanced?: number;
+  modified?: number;
+  unchanged?: number;
+}
+
 /** pull — fan out to every source into `source_events`. */
-async function stepPull(db: Db): Promise<RunCounts> {
+async function stepPull(db: Db): Promise<{ counts: RunCounts; sourceBreakdown: SourceBreakdown[] }> {
   const counts = emptyCounts();
-  const sources: [string, Promise<{ upserted: number; fetched?: number; requests?: number }>][] = [
+  const sourceBreakdown: SourceBreakdown[] = [];
+  const sources: [string, Promise<SourcePullResult>][] = [
     ["ticketmaster", ingestTicketmaster(db, DEFAULT_BUDGET)],
     ["openagenda", ingestOpenAgenda(db)],
     ["datatourisme", ingestDataTourisme(db)],
@@ -45,8 +56,19 @@ async function stepPull(db: Db): Promise<RunCounts> {
     counts.sourceEventsUpserted += r.value.upserted ?? 0;
     counts.fetched += r.value.fetched ?? 0;
     counts.requests += r.value.requests ?? 0;
+    // Only sources that implement classification (currently ticketmaster)
+    // report a breakdown; stub sources return `{upserted: 0}` and are skipped.
+    if (r.value.inserted !== undefined) {
+      sourceBreakdown.push({
+        source: name,
+        inserted: r.value.inserted ?? 0,
+        enhanced: r.value.enhanced ?? 0,
+        modified: r.value.modified ?? 0,
+        unchanged: r.value.unchanged ?? 0,
+      });
+    }
   });
-  return counts;
+  return { counts, sourceBreakdown };
 }
 
 /** metrics — compute the coverage snapshot and log it. */
@@ -61,14 +83,15 @@ async function runAll(db: Db): Promise<void> {
   const runId = await openRun(db, "all");
   const counts = emptyCounts();
   try {
-    Object.assign(counts, await stepPull(db));
+    const { counts: pullCounts, sourceBreakdown } = await stepPull(db);
+    Object.assign(counts, pullCounts);
     const res = await resolveSourceEvents(db);
     counts.eventsUpserted = res.eventsUpserted;
     counts.venuesUpserted = res.venuesUpserted;
     counts.performancesUpserted = res.performancesUpserted;
     counts.artistsUpserted = res.artistsUpserted;
     const metrics = await stepMetrics(db);
-    await finishRun(db, runId, { status: "success", counts, metrics });
+    await finishRun(db, runId, { status: "success", counts, metrics, sourceBreakdown });
   } catch (err) {
     console.error("[worker] run failed:", err);
     await finishRun(db, runId, {
@@ -84,7 +107,7 @@ async function runStep(step: string): Promise<void> {
   console.log(`[worker] step "${step}" started ${new Date().toISOString()}`);
   switch (step) {
     case "pull": {
-      const c = await stepPull(db);
+      const { counts: c } = await stepPull(db);
       console.log(`[worker] pull: ${c.sourceEventsUpserted} upserted, ${c.requests} API calls`);
       break;
     }

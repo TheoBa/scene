@@ -220,6 +220,11 @@ export const ingestionRuns = pgTable("ingestion_runs", {
   artistsUpserted: integer("artists_upserted").notNull().default(0),
   error: text("error"),
   metrics: jsonb("metrics"), // coverage snapshot at run end (see metrics.ts)
+  // Per-source new/enhanced/modified/unchanged counts for this run (see
+  // SourceBreakdown in apps/worker/src/lib/runs.ts) — the pull-level breakdown
+  // the /dev/data-quality run history drills into, distinct from `metrics`
+  // (which is a point-in-time catalogue-wide snapshot, not a per-run delta).
+  sourceBreakdown: jsonb("source_breakdown"),
 });
 
 // ---------- Profiles (our user, layered on better-auth's `user`) ----------

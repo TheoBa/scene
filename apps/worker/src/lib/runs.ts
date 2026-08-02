@@ -26,6 +26,15 @@ export const emptyCounts = (): RunCounts => ({
   artistsUpserted: 0,
 });
 
+/** Per-source new/enhanced/modified/unchanged tally for one run (see ticketmaster.ts). */
+export interface SourceBreakdown {
+  source: string;
+  inserted: number;
+  enhanced: number;
+  modified: number;
+  unchanged: number;
+}
+
 /** Open a run row (`status='running'`); returns its id. */
 export async function openRun(db: Db, source = "all"): Promise<string> {
   const [row] = await db
@@ -44,6 +53,7 @@ export async function finishRun(
     counts?: Partial<RunCounts>;
     error?: string;
     metrics?: unknown;
+    sourceBreakdown?: SourceBreakdown[];
   },
 ): Promise<void> {
   await db
@@ -53,6 +63,7 @@ export async function finishRun(
       finishedAt: new Date(),
       error: opts.error ?? null,
       ...(opts.metrics !== undefined ? { metrics: opts.metrics } : {}),
+      ...(opts.sourceBreakdown !== undefined ? { sourceBreakdown: opts.sourceBreakdown } : {}),
       ...opts.counts,
     })
     .where(eq(ingestionRuns.id, runId));

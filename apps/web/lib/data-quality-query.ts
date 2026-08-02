@@ -38,6 +38,14 @@ export interface MetricsSnapshot {
   sources: SourceStats[];
 }
 
+export interface SourceBreakdown {
+  source: string;
+  inserted: number;
+  enhanced: number;
+  modified: number;
+  unchanged: number;
+}
+
 export interface RunRow {
   id: string;
   source: string;
@@ -52,6 +60,7 @@ export interface RunRow {
   performancesUpserted: number;
   artistsUpserted: number;
   error: string | null;
+  sourceBreakdown: SourceBreakdown[] | null;
 }
 
 export interface DataQuality {
@@ -78,6 +87,7 @@ export async function getDataQuality(): Promise<DataQuality> {
       performancesUpserted: ingestionRuns.performancesUpserted,
       artistsUpserted: ingestionRuns.artistsUpserted,
       error: ingestionRuns.error,
+      sourceBreakdown: ingestionRuns.sourceBreakdown,
     })
     .from(ingestionRuns)
     .orderBy(desc(ingestionRuns.startedAt))
@@ -94,6 +104,6 @@ export async function getDataQuality(): Promise<DataQuality> {
   return {
     metrics: (latest?.metrics as MetricsSnapshot | undefined) ?? null,
     metricsAt: latest?.startedAt ?? null,
-    runs,
+    runs: runs.map((r) => ({ ...r, sourceBreakdown: r.sourceBreakdown as SourceBreakdown[] | null })),
   };
 }

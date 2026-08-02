@@ -1,4 +1,5 @@
 import { sourceEvents, type Db } from "@scenes/db";
+import { and, eq } from "drizzle-orm";
 import { ThrottledClient, BudgetExceededError, type Budget } from "../lib/http.js";
 
 /**
@@ -84,7 +85,17 @@ interface TmResponse {
   page?: { totalElements?: number; totalPages?: number };
 }
 
-export interface SweepResult {
+/** Per-row upsert classification, tallied across a sweep for /dev/data-quality. */
+export interface UpsertTally {
+  inserted: number; // sourceRef not seen before
+  enhanced: number; // re-seen, some previously-null tracked field got filled
+  modified: number; // re-seen, some previously-populated tracked field changed value
+  unchanged: number; // re-seen, no tracked field differs
+}
+
+const emptyTally = (): UpsertTally => ({ inserted: 0, enhanced: 0, modified: 0, unchanged: 0 });
+
+export interface SweepResult extends UpsertTally {
   upserted: number;
   fetched: number;
   requests: number;
@@ -161,10 +172,75 @@ function mapEvent(e: TmEvent) {
   };
 }
 
+// Fields compared to classify a re-seen row (excludes raw/dedupKey — dedupKey
+// is derived from title/venueName/startsAt, already tracked individually).
+const TRACKED_FIELDS = [
+  "title",
+  "venueName",
+  "venueAddress",
+  "city",
+  "postalCode",
+  "genre",
+  "subGenre",
+  "imageUrl",
+  "sourceUrl",
+] as const;
+
+type ExistingRow = Pick<typeof sourceEvents.$inferSelect, (typeof TRACKED_FIELDS)[number] | "startsAt" | "performers">;
+
+function valuesEqual(a: unknown, b: unknown): boolean {
+  if (Array.isArray(a) || Array.isArray(b)) {
+    const aa = (a as string[] | null) ?? [];
+    const bb = (b as string[] | null) ?? [];
+    return aa.length === bb.length && aa.every((v, i) => v === bb[i]);
+  }
+  return (a ?? null) === (b ?? null);
+}
+
+/** New / unchanged / enhanced (null→value) / modified (value→different value). */
+function classify(existing: ExistingRow | undefined, next: ReturnType<typeof mapEvent>): keyof UpsertTally {
+  if (!existing) return "inserted";
+
+  let enhanced = false;
+  let modified = false;
+  const note = (wasNull: boolean) => (wasNull ? (enhanced = true) : (modified = true));
+
+  for (const field of TRACKED_FIELDS) {
+    if (!valuesEqual(existing[field], next[field])) note(existing[field] === null);
+  }
+  const oldStartsAt = existing.startsAt?.getTime() ?? null;
+  const newStartsAt = next.startsAt?.getTime() ?? null;
+  if (oldStartsAt !== newStartsAt) note(oldStartsAt === null);
+  if (!valuesEqual(existing.performers, next.performers)) note(existing.performers === null);
+
+  if (modified) return "modified";
+  if (enhanced) return "enhanced";
+  return "unchanged";
+}
+
 /** Upsert one raw event; refresh mapped fields + lastSeenAt on re-see. */
-async function upsertEvent(db: Db, e: TmEvent): Promise<void> {
+async function upsertEvent(db: Db, e: TmEvent): Promise<keyof UpsertTally> {
   const row = mapEvent(e);
   const { source: _s, sourceRef: _r, ...mutable } = row;
+
+  const [existing] = await db
+    .select({
+      title: sourceEvents.title,
+      venueName: sourceEvents.venueName,
+      venueAddress: sourceEvents.venueAddress,
+      city: sourceEvents.city,
+      postalCode: sourceEvents.postalCode,
+      startsAt: sourceEvents.startsAt,
+      genre: sourceEvents.genre,
+      subGenre: sourceEvents.subGenre,
+      imageUrl: sourceEvents.imageUrl,
+      sourceUrl: sourceEvents.sourceUrl,
+      performers: sourceEvents.performers,
+    })
+    .from(sourceEvents)
+    .where(and(eq(sourceEvents.source, row.source), eq(sourceEvents.sourceRef, row.sourceRef)));
+  const outcome = classify(existing, row);
+
   await db
     .insert(sourceEvents)
     .values(row)
@@ -172,6 +248,8 @@ async function upsertEvent(db: Db, e: TmEvent): Promise<void> {
       target: [sourceEvents.source, sourceEvents.sourceRef],
       set: { ...mutable, lastSeenAt: new Date() },
     });
+
+  return outcome;
 }
 
 /** size=1 probe → totalElements, to decide whether a window needs bisecting. */
@@ -180,18 +258,19 @@ async function countWindow(client: ThrottledClient, q: Record<string, string>): 
   return data.page?.totalElements ?? 0;
 }
 
-/** Page through a window known to fit the cap; upsert each event. */
+/** Page through a window known to fit the cap; upsert each event, tallying outcomes. */
 async function saveWindow(
   db: Db,
   client: ThrottledClient,
   q: Record<string, string>,
+  tally: UpsertTally,
 ): Promise<number> {
   let fetched = 0;
   for (let page = 0; page < MAX_PAGES; page++) {
     const data = await client.getJson<TmResponse>(buildUrl({ ...q, size: String(PAGE_SIZE), page: String(page) }));
     const events = data._embedded?.events ?? [];
     for (const e of events) {
-      await upsertEvent(db, e);
+      tally[await upsertEvent(db, e)]++;
       fetched++;
     }
     const totalPages = data.page?.totalPages ?? 0;
@@ -208,6 +287,7 @@ async function processWindow(
   o: TicketmasterOptions,
   start: Date,
   end: Date,
+  tally: UpsertTally,
 ): Promise<number> {
   const q = windowQuery(o, key, start, end);
   const total = await countWindow(client, q);
@@ -218,12 +298,12 @@ async function processWindow(
     const mid = addDays(start, Math.floor(days / 2)); // days>1 ⇒ mid strictly inside
     console.log(`  ${label}: ${total} > cap — splitting`);
     return (
-      (await processWindow(db, client, key, o, start, mid)) +
-      (await processWindow(db, client, key, o, mid, end))
+      (await processWindow(db, client, key, o, start, mid, tally)) +
+      (await processWindow(db, client, key, o, mid, end, tally))
     );
   }
 
-  const fetched = await saveWindow(db, client, q);
+  const fetched = await saveWindow(db, client, q, tally);
   if (total > CAP) console.warn(`  ⚠ ${label}: ${total} > cap at 1-day floor — some events missed`);
   else console.log(`  ${label}: ${fetched} events`);
   return fetched;
@@ -242,7 +322,7 @@ export async function ingestTicketmaster(
   const key = process.env.TICKETMASTER_API_KEY;
   if (!key) {
     console.warn("[ticketmaster] TICKETMASTER_API_KEY not set — skipping this source");
-    return { upserted: 0, fetched: 0, requests: 0 };
+    return { upserted: 0, fetched: 0, requests: 0, ...emptyTally() };
   }
   const o: TicketmasterOptions = { ...DEFAULTS, ...opts, budget };
   const client = new ThrottledClient(budget);
@@ -262,10 +342,11 @@ export async function ingestTicketmaster(
 
   let fetched = 0;
   let cursor = start;
+  const tally = emptyTally();
   try {
     while (cursor < end) {
       const winEnd = new Date(Math.min(addDays(cursor, o.windowDays).getTime(), end.getTime()));
-      fetched += await processWindow(db, client, key, o, cursor, winEnd);
+      fetched += await processWindow(db, client, key, o, cursor, winEnd, tally);
       cursor = winEnd;
     }
   } catch (err) {
@@ -277,6 +358,9 @@ export async function ingestTicketmaster(
   }
 
   // Every row we touched is an upsert into source_events; fetched == upserted here.
-  console.log(`[ticketmaster] ${fetched} source_events upserted (${client.requests} API calls)`);
-  return { upserted: fetched, fetched, requests: client.requests };
+  console.log(
+    `[ticketmaster] ${fetched} source_events upserted (${client.requests} API calls) — ` +
+      `${tally.inserted} new, ${tally.enhanced} enhanced, ${tally.modified} modified, ${tally.unchanged} unchanged`,
+  );
+  return { upserted: fetched, fetched, requests: client.requests, ...tally };
 }
