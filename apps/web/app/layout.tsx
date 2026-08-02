@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "Scenes — le théâtre à Paris",
   description:
     "Découvrez, notez et partagez les pièces de théâtre à l'affiche à Paris.",
+  manifest: "/site.webmanifest",
 };
 
 export default async function RootLayout({
