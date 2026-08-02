@@ -206,18 +206,58 @@ function Cell({ label, value }: { label: string; value: number }) {
 }
 
 function RunRowView({ r }: { r: RunRow }) {
+  const breakdown = r.sourceBreakdown?.filter(
+    (b) => b.inserted + b.enhanced + b.modified + b.unchanged > 0,
+  );
   return (
-    <tr className="border-b border-black/5 last:border-0" title={r.error ?? undefined}>
-      <td className="px-4 py-2 text-black/70">{formatDateTime(r.startedAt)}</td>
-      <td className="px-4 py-2 text-black/70">{r.source}</td>
-      <td className="px-4 py-2">
-        <StatusPill status={r.status} />
-      </td>
-      <td className="px-4 py-2 text-right tabular-nums text-black/70">{r.requests}</td>
-      <td className="px-4 py-2 text-right tabular-nums text-black/70">
-        {r.sourceEventsUpserted}
-      </td>
-    </tr>
+    <>
+      <tr className="border-b border-black/5 last:border-0" title={r.error ?? undefined}>
+        <td className="px-4 py-2 text-black/70">{formatDateTime(r.startedAt)}</td>
+        <td className="px-4 py-2 text-black/70">{r.source}</td>
+        <td className="px-4 py-2">
+          <StatusPill status={r.status} />
+        </td>
+        <td className="px-4 py-2 text-right tabular-nums text-black/70">{r.requests}</td>
+        <td className="px-4 py-2 text-right tabular-nums text-black/70">
+          {r.sourceEventsUpserted}
+        </td>
+      </tr>
+      {breakdown && breakdown.length > 0 && (
+        <tr className="border-b border-black/5 last:border-0">
+          <td colSpan={5} className="px-4 py-2">
+            <details>
+              <summary className="cursor-pointer text-xs font-medium text-black/50 hover:text-black/70">
+                Détail par source
+              </summary>
+              <div className="mt-2 overflow-hidden rounded-xl bg-black/[0.03]">
+                <table className="w-full text-xs">
+                  <thead className="text-left text-black/50">
+                    <tr>
+                      <th className="px-3 py-1.5 font-medium">Source</th>
+                      <th className="px-3 py-1.5 text-right font-medium">Nouveaux</th>
+                      <th className="px-3 py-1.5 text-right font-medium">Enrichis</th>
+                      <th className="px-3 py-1.5 text-right font-medium">Modifiés</th>
+                      <th className="px-3 py-1.5 text-right font-medium">Inchangés</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {breakdown.map((b) => (
+                      <tr key={b.source}>
+                        <td className="px-3 py-1.5 text-black/70">{b.source}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">{b.inserted}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">{b.enhanced}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">{b.modified}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">{b.unchanged}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
