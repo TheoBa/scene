@@ -14,8 +14,21 @@ export function isDevCategory(v: string): v is DevCategory {
   return DEV_CATEGORIES.some((c) => c.value === v);
 }
 
-export type DevNoteStatus = "new" | "processed";
+// Lifecycle a note moves through once the /plan-from-notes skill (and later,
+// a build-from-plan skill) picks it up. `untackled` is the only status a note
+// is ever created with; the rest are set by those skills via the /api/dev/notes
+// route, except `done`, which is always a manual close-out by whoever reviews
+// the merged PR (see NoteActions).
+export const DEV_NOTE_STATUSES = [
+  { value: "untackled", label: "À traiter" },
+  { value: "waiting_for_input", label: "Infos requises" },
+  { value: "plan_done", label: "Plan prêt" },
+  { value: "implemented_pending_review", label: "À relire" },
+  { value: "done", label: "Traité" },
+] as const;
+
+export type DevNoteStatus = (typeof DEV_NOTE_STATUSES)[number]["value"];
 
 export function isDevNoteStatus(v: string): v is DevNoteStatus {
-  return v === "new" || v === "processed";
+  return DEV_NOTE_STATUSES.some((s) => s.value === v);
 }

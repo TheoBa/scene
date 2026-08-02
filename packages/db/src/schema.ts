@@ -382,7 +382,7 @@ export const devNotes = pgTable("dev_notes", {
   body: text("body").notNull(),
   category: text("category").notNull().default("idea"), // bug | idea | other
   path: text("path"), // page the note was dropped from (pathname + query)
-  status: text("status").notNull().default("new"), // new | processed
+  status: text("status").notNull().default("untackled"), // untackled | waiting_for_input | plan_done | implemented_pending_review | done
   userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
