@@ -17,6 +17,8 @@ export interface VenueDetail {
   name: string;
   slug: string;
   address: string | null;
+  lat: number | null;
+  lng: number | null;
   bio: string | null;
   imageUrl: string | null;
   officialUrl: string | null;
@@ -68,6 +70,8 @@ export async function getVenueBySlug(slug: string): Promise<VenueDetail | null> 
       name: venues.name,
       slug: venues.slug,
       address: venues.address,
+      lat: venues.lat,
+      lng: venues.lng,
       bio: venues.bio,
       imageUrl: venues.imageUrl,
       officialUrl: venues.officialUrl,
