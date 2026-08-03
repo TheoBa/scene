@@ -17,6 +17,9 @@ export interface ArtistDetail {
   bio: string | null;
   imageUrl: string | null;
   officialUrl: string | null;
+  instagramUrl: string | null;
+  facebookUrl: string | null;
+  twitterUrl: string | null;
   claimedByUserId: string | null;
   shows: { slug: string; name: string; imageUrl: string | null }[];
 }
@@ -42,6 +45,9 @@ export async function getArtistBySlug(slug: string): Promise<ArtistDetail | null
       bio: artists.bio,
       imageUrl: artists.imageUrl,
       officialUrl: artists.officialUrl,
+      instagramUrl: artists.instagramUrl,
+      facebookUrl: artists.facebookUrl,
+      twitterUrl: artists.twitterUrl,
       claimedByUserId: artists.claimedByUserId,
     })
     .from(artists)

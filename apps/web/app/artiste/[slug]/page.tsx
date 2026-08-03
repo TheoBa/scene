@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import type { Metadata } from "next";
+import { Facebook, Instagram, X as XIcon } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getArtistBySlug, isFollowingArtist } from "@/lib/artists";
 import { posterSrc } from "@/lib/poster";
@@ -85,6 +86,39 @@ export default async function ArtistPage({
                 className="inline-flex w-fit items-center gap-1.5 rounded-full bg-black/5 px-4 py-2 text-sm font-semibold text-black/80 transition hover:bg-black/10"
               >
                 Site officiel ↗
+              </a>
+            )}
+            {artist.instagramUrl && (
+              <a
+                href={artist.instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram"
+                className="inline-flex items-center rounded-full bg-black/5 p-2.5 text-black/80 transition hover:bg-black/10"
+              >
+                <Instagram size={18} />
+              </a>
+            )}
+            {artist.facebookUrl && (
+              <a
+                href={artist.facebookUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Facebook"
+                className="inline-flex items-center rounded-full bg-black/5 p-2.5 text-black/80 transition hover:bg-black/10"
+              >
+                <Facebook size={18} />
+              </a>
+            )}
+            {artist.twitterUrl && (
+              <a
+                href={artist.twitterUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="X (Twitter)"
+                className="inline-flex items-center rounded-full bg-black/5 p-2.5 text-black/80 transition hover:bg-black/10"
+              >
+                <XIcon size={18} />
               </a>
             )}
           </div>
