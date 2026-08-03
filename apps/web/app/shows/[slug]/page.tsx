@@ -138,7 +138,10 @@ export default async function ShowPage({
             )}
 
             <div className="mt-4">
-              <ShareButtons title={show.name} />
+              <ShareButtons
+                title={show.name}
+                imageUrl={show.imageUrl ? posterSrc(show.imageUrl) : undefined}
+              />
             </div>
 
             {amazonUrl && (
