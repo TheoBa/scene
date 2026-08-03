@@ -8,6 +8,10 @@ import { artists, claims, devNotes, venues } from "@scenes/db";
 import { isDevCategory, isDevNoteStatus } from "@/lib/dev-notes";
 
 const MAX_BODY = 4000;
+// Screenshots are downscaled to 1280px wide client-side before encoding, so a
+// PNG data URL comfortably fits well under this; this is just a backstop
+// against a pathological capture.
+const MAX_SCREENSHOT_DATA_URL = 5_000_000;
 
 export type SubmitDevNoteResult =
   | { ok: true }
@@ -19,6 +23,7 @@ export async function submitDevNote(input: {
   body: string;
   category: string;
   path: string;
+  screenshotDataUrl?: string;
 }): Promise<SubmitDevNoteResult> {
   const dev = await getDevAccess();
   if (!dev) return { ok: false, error: "Accès refusé." };
@@ -30,10 +35,15 @@ export async function submitDevNote(input: {
   const category = isDevCategory(input.category) ? input.category : "idea";
   const path = input.path.slice(0, 500) || null;
 
+  const screenshot = input.screenshotDataUrl?.startsWith("data:image/")
+    ? input.screenshotDataUrl.slice(0, MAX_SCREENSHOT_DATA_URL)
+    : null;
+
   await getDb().insert(devNotes).values({
     body,
     category,
     path,
+    screenshotDataUrl: screenshot,
     userId: dev.id,
   });
 
