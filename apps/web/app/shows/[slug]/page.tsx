@@ -9,6 +9,7 @@ import { formatDateTime } from "@/lib/format";
 import { posterSrc } from "@/lib/poster";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SourceAttribution } from "@/components/SourceAttribution";
+import { ShareButtons } from "@/components/ShareButtons";
 import { AvisSection } from "./AvisSection";
 import { ReactionHistogram } from "./ReactionHistogram";
 
@@ -133,6 +134,10 @@ export default async function ShowPage({
                 <SourceAttribution source={show.ticketSource} ticketUrl={show.ticketUrl} />
               </div>
             )}
+
+            <div className="mt-4">
+              <ShareButtons title={show.name} />
+            </div>
           </div>
         </div>
       </section>
