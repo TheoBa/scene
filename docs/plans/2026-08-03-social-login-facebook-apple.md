@@ -1,7 +1,8 @@
 ---
 note_ids: ["6fd84269-7343-46cf-b698-16446982e124"]
-status: plan_done
+status: implemented_pending_review
 created: 2026-08-03
+pr: https://github.com/TheoBa/scene/pull/56
 ---
 
 # Social login: add Facebook and Apple
