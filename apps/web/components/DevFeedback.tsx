@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { submitDevNote } from "@/app/dev/actions";
 import { DEV_CATEGORIES, type DevCategory } from "@/lib/dev-notes";
@@ -101,13 +102,7 @@ export function DevFeedback() {
 
           {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
 
-          <div className="mt-2 flex items-center justify-between">
-            <a
-              href="/dev/notes"
-              className="text-xs font-medium text-black/40 hover:text-black/70"
-            >
-              Voir les notes →
-            </a>
+          <div className="mt-2 flex items-center justify-end">
             <button
               type="button"
               onClick={submit}
@@ -116,6 +111,27 @@ export function DevFeedback() {
             >
               {pending ? "…" : done ? "Envoyé ✓" : "Envoyer"}
             </button>
+          </div>
+
+          <div className="mt-3 flex gap-1.5 border-t border-black/10 pt-3">
+            <Link
+              href="/dev/notes"
+              className="flex-1 rounded-lg bg-black/[0.04] px-2 py-1.5 text-center text-xs font-semibold text-black/60 transition hover:bg-black/[0.08]"
+            >
+              Notes
+            </Link>
+            <Link
+              href="/dev/data-quality"
+              className="flex-1 rounded-lg bg-black/[0.04] px-2 py-1.5 text-center text-xs font-semibold text-black/60 transition hover:bg-black/[0.08]"
+            >
+              Data quality
+            </Link>
+            <Link
+              href="/dev/posters"
+              className="flex-1 rounded-lg bg-black/[0.04] px-2 py-1.5 text-center text-xs font-semibold text-black/60 transition hover:bg-black/[0.08]"
+            >
+              Posters
+            </Link>
           </div>
         </div>
       )}
