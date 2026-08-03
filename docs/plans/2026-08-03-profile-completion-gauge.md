@@ -1,7 +1,8 @@
 ---
 note_ids: ["7ba63e5c-5b51-4eca-a377-75242d86112b", "8ec2f66c-44a0-434c-b04b-1f4fe0121a20", "c023f80d-3140-4977-aec3-d09c7a9b66b9"]
-status: plan_done
+status: implemented_pending_review
 created: 2026-08-03
+pr: https://github.com/TheoBa/scene/pull/62
 ---
 
 # Profile completion gauge
