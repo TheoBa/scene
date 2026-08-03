@@ -1,5 +1,5 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, count, desc, eq, ilike, ne } from "drizzle-orm";
+import { and, count, desc, eq, ilike, ne, notInArray } from "drizzle-orm";
 import { attendance, comments, events, follows, profiles, reactions } from "@scenes/db";
 import { getDb } from "./db";
 import { isReactionKind, type ReactionKind } from "./reactions";
@@ -111,6 +111,41 @@ export async function searchPeople(
     .limit(8);
 
   return rows.map((r) => ({ pseudo: r.pseudo, isFollowing: r.followerId !== null }));
+}
+
+export interface PopularProfile {
+  pseudo: string;
+  followerCount: number;
+}
+
+// "Utilisateurs populaires à suivre": profiles ranked by follower count,
+// excluding the viewer and anyone they already follow. Curated, not
+// personalized to genre/location.
+export async function getPopularProfiles(
+  viewerId: string,
+  limit = 12,
+): Promise<PopularProfile[]> {
+  const db = getDb();
+
+  const alreadyFollowed = await db
+    .select({ followeeId: follows.followeeId })
+    .from(follows)
+    .where(eq(follows.followerId, viewerId));
+  const excludeIds = [viewerId, ...alreadyFollowed.map((r) => r.followeeId)];
+
+  const rows = await db
+    .select({
+      pseudo: profiles.pseudo,
+      followerCount: count(follows.followerId),
+    })
+    .from(profiles)
+    .leftJoin(follows, eq(follows.followeeId, profiles.userId))
+    .where(notInArray(profiles.userId, excludeIds))
+    .groupBy(profiles.userId, profiles.pseudo)
+    .orderBy(desc(count(follows.followerId)))
+    .limit(limit);
+
+  return rows;
 }
 
 export interface ProfileReview {
