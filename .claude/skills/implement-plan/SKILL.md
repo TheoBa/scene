@@ -132,6 +132,18 @@ curl -s -X PATCH -H "Authorization: Bearer $DEV_NOTES_API_TOKEN" \
 Repeat per id in `note_ids`. If `note_ids` is `[]`, there's nothing to PATCH —
 step (a) alone is enough.
 
+**If you're running inside an isolated worktree (batch mode, §3): do not do
+this step yourself.** `.env.dev-notes` is gitignored, so it doesn't exist in
+your worktree — the only way to "complete" this step from inside one is to go
+looking for the file outside your assigned directory (e.g. in the main
+checkout) and copy the credential in, which is exactly the kind of
+scope-crossing behavior that gets (rightly) flagged as a security concern.
+Skip step (b) entirely, note in your report which `note_ids` are still
+unpatched, and let the orchestrating session — which has legitimate access to
+the credential in the main checkout — do the PATCH once your PR is confirmed
+open. Still do step (a); the plan file is git-tracked and part of your own
+commit.
+
 ## 2. Report back
 
 Per plan: which file, the branch name, the PR URL, and a one-line summary of
@@ -154,9 +166,17 @@ and branch:
 - `subagent_type`: `claude` (general-purpose is also fine)
 - `isolation`: `"worktree"`
 - `prompt`: point it at exactly one plan file and tell it to run §1 of this
-  skill (branch → implement → verify → commit → push → PR → flip statuses)
-  for that plan only, then report back the PR URL
+  skill (branch → implement → verify → commit → push → PR → flip plan-file
+  status) for that plan only, **explicitly telling it to skip §1.7(b)** (the
+  dev_notes PATCH) and instead report back which `note_ids` still need
+  patching
 
 Do not run the whole batch sequentially in the main session — that's what the
-worktree isolation is for. After all agents finish, collect their PR URLs into
-one summary for Théo (§2) rather than each agent reporting separately.
+worktree isolation is for. **The orchestrating session does the dev_notes
+PATCH itself**, once per agent, from the main checkout (where `.env.dev-notes`
+legitimately lives) — never ask a worktree-isolated agent to locate or copy
+that credential; a worktree is a fresh git checkout of tracked files only, so
+the gitignored `.env.dev-notes` isn't there, and an agent "solving" that by
+fetching the file from outside its own worktree is a credential-scope
+violation, not a workaround. After all agents finish, collect their PR URLs
+and PATCH each agent's `note_ids` into one summary for Théo (§2).
