@@ -78,29 +78,27 @@ export default async function DataQualityPage() {
             </div>
           </section>
 
-          {/* Venue / artist page completeness */}
+          {/* Salles */}
           <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-            <h2 className="text-sm font-semibold text-black/70">
-              Pages salle / artiste
-            </h2>
-            <div className="mt-4 grid gap-6 sm:grid-cols-2">
-              <div className="space-y-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-black/40">
-                  Salles
-                </h3>
-                <Bar label="Bio" c={metrics.venues.bio} />
-                <Bar label="Photo" c={metrics.venues.imageUrl} />
-                <Bar label="Revendiquées" c={metrics.venues.claimed} />
-              </div>
-              <div className="space-y-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-black/40">
-                  Artistes
-                </h3>
-                <Bar label="Bio" c={metrics.artists.bio} />
-                <Bar label="Photo" c={metrics.artists.imageUrl} />
-                <Bar label="Revendiqués" c={metrics.artists.claimed} />
-                <Bar label="Liés à un spectacle" c={metrics.artists.linkedToEvent} />
-              </div>
+            <h2 className="text-sm font-semibold text-black/70">Pages salle</h2>
+            <div className="mt-4 space-y-3">
+              <Bar label="Bio" c={metrics.venues.bio} />
+              <Bar label="Photo" c={metrics.venues.imageUrl} />
+              <Bar label="Lien officiel" c={metrics.venues.officialUrl} />
+              <Bar label="Coordonnées (lat/long)" c={metrics.venues.lat} />
+              <Bar label="Revendiquées" c={metrics.venues.claimed} />
+            </div>
+          </section>
+
+          {/* Artistes */}
+          <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+            <h2 className="text-sm font-semibold text-black/70">Pages artiste</h2>
+            <div className="mt-4 space-y-3">
+              <Bar label="Bio" c={metrics.artists.bio} />
+              <Bar label="Photo" c={metrics.artists.imageUrl} />
+              <Bar label="Lien officiel" c={metrics.artists.officialUrl} />
+              <Bar label="Revendiqués" c={metrics.artists.claimed} />
+              <Bar label="Liés à un spectacle" c={metrics.artists.linkedToEvent} />
             </div>
           </section>
 

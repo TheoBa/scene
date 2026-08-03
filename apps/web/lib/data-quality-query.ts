@@ -32,8 +32,23 @@ export interface MetricsSnapshot {
       Coverage
     >;
   };
-  venues: { total: number; address: Coverage; bio: Coverage; imageUrl: Coverage; claimed: Coverage };
-  artists: { total: number; bio: Coverage; imageUrl: Coverage; claimed: Coverage; linkedToEvent: Coverage };
+  venues: {
+    total: number;
+    address: Coverage;
+    bio: Coverage;
+    imageUrl: Coverage;
+    officialUrl: Coverage;
+    lat: Coverage;
+    claimed: Coverage;
+  };
+  artists: {
+    total: number;
+    bio: Coverage;
+    imageUrl: Coverage;
+    officialUrl: Coverage;
+    claimed: Coverage;
+    linkedToEvent: Coverage;
+  };
   performances: { total: number; upcoming: number; past: number };
   sources: SourceStats[];
 }

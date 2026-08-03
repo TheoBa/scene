@@ -76,6 +76,7 @@ interface TmEvent {
       address?: { line1?: string };
       city?: { name?: string };
       postalCode?: string;
+      location?: { latitude?: string; longitude?: string };
     }>;
     attractions?: Array<{ name?: string }>;
   };
@@ -109,6 +110,13 @@ const addDays = (d: Date, n: number): Date => new Date(d.getTime() + n * DAY_MS)
 const startOfUtcDay = (d: Date): Date =>
   new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 const norm = (s: string): string => s.trim().toLowerCase();
+
+/** TM reports venue coordinates as strings; guards against a missing/malformed value. */
+function toCoord(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
 
 function windowQuery(o: TicketmasterOptions, key: string, start: Date, end: Date): Record<string, string> {
   const q: Record<string, string> = {
@@ -163,6 +171,8 @@ function mapEvent(e: TmEvent) {
     venueAddress: venue?.address?.line1 ?? null,
     city: venue?.city?.name ?? null,
     postalCode: venue?.postalCode ?? null,
+    venueLat: toCoord(venue?.location?.latitude),
+    venueLng: toCoord(venue?.location?.longitude),
     startsAt: e.dates?.start?.dateTime ? new Date(e.dates.start.dateTime) : null,
     genre: cls?.genre?.name ?? null,
     subGenre: cls?.subGenre?.name ?? null,
@@ -180,6 +190,8 @@ const TRACKED_FIELDS = [
   "venueAddress",
   "city",
   "postalCode",
+  "venueLat",
+  "venueLng",
   "genre",
   "subGenre",
   "imageUrl",
@@ -230,6 +242,8 @@ async function upsertEvent(db: Db, e: TmEvent): Promise<keyof UpsertTally> {
       venueAddress: sourceEvents.venueAddress,
       city: sourceEvents.city,
       postalCode: sourceEvents.postalCode,
+      venueLat: sourceEvents.venueLat,
+      venueLng: sourceEvents.venueLng,
       startsAt: sourceEvents.startsAt,
       genre: sourceEvents.genre,
       subGenre: sourceEvents.subGenre,
