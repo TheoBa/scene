@@ -371,6 +371,11 @@ Drizzle's `drizzle.__drizzle_migrations` ledger correctly, so later migrations
 continue cleanly — raw `psql` of the SQL would skip the ledger and break the next
 migrate).
 
+The `staging-db` Claude Code skill (`.claude/skills/staging-db/`) automates this
+whole flow — migrating, running a named backfill script, or an ad-hoc read-only
+query against staging — and can be invoked directly instead of following the
+steps below by hand.
+
 1. **Coolify UI** — PostgreSQL resource → turn **"Make it publicly available" ON**,
    set the public port to **`5433`** (not 5432 — local dev Postgres uses 5432 and
    Lima forwards the VM port onto the Mac's `127.0.0.1`, so 5432 would clash).
