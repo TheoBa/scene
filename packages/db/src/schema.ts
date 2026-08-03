@@ -407,6 +407,11 @@ export const devNotes = pgTable("dev_notes", {
   category: text("category").notNull().default("idea"), // bug | idea | other
   path: text("path"), // page the note was dropped from (pathname + query)
   status: text("status").notNull().default("untackled"), // untackled | waiting_for_input | plan_done | implemented_pending_review | done
+  // Optional screenshot attached from the widget, stored inline as a base64 PNG
+  // data URL — no object storage (S3/R2) exists in this project yet, and at
+  // this tool's scale (two internal users) standing one up isn't worth it.
+  // Revisit if row sizes become a real problem.
+  screenshotDataUrl: text("screenshot_data_url"),
   userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

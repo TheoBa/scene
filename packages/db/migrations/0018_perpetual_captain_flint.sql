@@ -1,0 +1,1 @@
+ALTER TABLE "dev_notes" ADD COLUMN "screenshot_data_url" text;

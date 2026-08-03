@@ -13,6 +13,7 @@ export interface DevNote {
   status: string;
   createdAt: Date;
   authorName: string | null; // account name/email of the note's author, if kept
+  screenshotDataUrl: string | null; // base64 PNG data URL, if one was attached
 }
 
 // Every dropped note, newest first, joined with its author. Powers /dev/notes.
@@ -27,6 +28,7 @@ export async function getDevNotes(): Promise<DevNote[]> {
       createdAt: devNotes.createdAt,
       authorName: user.name,
       authorEmail: user.email,
+      screenshotDataUrl: devNotes.screenshotDataUrl,
     })
     .from(devNotes)
     .leftJoin(user, eq(devNotes.userId, user.id))
@@ -40,5 +42,6 @@ export async function getDevNotes(): Promise<DevNote[]> {
     status: r.status,
     createdAt: r.createdAt,
     authorName: r.authorName ?? r.authorEmail ?? null,
+    screenshotDataUrl: r.screenshotDataUrl,
   }));
 }

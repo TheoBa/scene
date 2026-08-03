@@ -88,6 +88,21 @@ function NoteList({
               {n.body}
             </p>
 
+            {n.screenshotDataUrl && (
+              <a
+                href={n.screenshotDataUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-block"
+              >
+                <img
+                  src={n.screenshotDataUrl}
+                  alt="Capture d'écran jointe"
+                  className="h-24 w-40 rounded-lg object-cover ring-1 ring-black/10 transition hover:opacity-80"
+                />
+              </a>
+            )}
+
             <div className="mt-3 flex items-center justify-between gap-3">
               {n.path ? (
                 <a

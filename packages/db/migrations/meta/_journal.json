@@ -127,6 +127,13 @@
       "when": 1785736894799,
       "tag": "0017_flashy_romulus",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1785785691664,
+      "tag": "0018_perpetual_captain_flint",
+      "breakpoints": true
     }
   ]
 }

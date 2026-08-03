@@ -1,7 +1,8 @@
 ---
 note_ids: ["bc739b2a-3648-41af-9bfb-79ffa53b1212"]
-status: plan_done
+status: implemented_pending_review
 created: 2026-08-03
+pr: https://github.com/TheoBa/scene/pull/60
 ---
 
 # Screenshots in dev-notes
