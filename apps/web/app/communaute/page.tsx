@@ -94,6 +94,14 @@ export default async function CommunautePage() {
                   <p className="mt-2 whitespace-pre-wrap text-sm text-black/80">
                     {item.body}
                   </p>
+                  {item.viewerHasAttended && !item.viewerHasReviewed && (
+                    <Link
+                      href="/mon-espace"
+                      className="mt-2 inline-block text-sm font-medium text-[var(--accent)] hover:underline"
+                    >
+                      Toi aussi tu l&apos;as vu ? Donne ton avis →
+                    </Link>
+                  )}
                 </div>
               </div>
             </li>
