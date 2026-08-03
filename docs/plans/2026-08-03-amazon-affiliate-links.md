@@ -1,7 +1,8 @@
 ---
 note_ids: ["0a64639a-e735-4a7a-a7c8-bede05cef9b7"]
-status: plan_done
+status: implemented_pending_review
 created: 2026-08-03
+pr: https://github.com/TheoBa/scene/pull/57
 ---
 
 # Amazon book affiliate links on show pages
