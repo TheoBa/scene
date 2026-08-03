@@ -117,8 +117,33 @@ export async function getDataQuality(): Promise<DataQuality> {
     .limit(1);
 
   return {
-    metrics: (latest?.metrics as MetricsSnapshot | undefined) ?? null,
+    metrics: normalizeMetrics(latest?.metrics),
     metricsAt: latest?.startedAt ?? null,
     runs: runs.map((r) => ({ ...r, sourceBreakdown: r.sourceBreakdown as SourceBreakdown[] | null })),
+  };
+}
+
+const ZERO_COVERAGE: Coverage = { present: 0, total: 0, pct: 0 };
+
+// `metrics` is a jsonb snapshot written by whatever worker code ran the LAST
+// ingestion — it can be older than the page rendering it (e.g. right after a
+// deploy that added a new tracked field, before the next 05:00 cron run
+// regenerates the snapshot). Filling in zero-Coverage for any field an older
+// snapshot doesn't have keeps the page rendering instead of crashing on
+// `undefined.pct`.
+function normalizeMetrics(raw: unknown): MetricsSnapshot | null {
+  if (!raw) return null;
+  const m = raw as MetricsSnapshot;
+  return {
+    ...m,
+    venues: {
+      ...m.venues,
+      officialUrl: m.venues.officialUrl ?? ZERO_COVERAGE,
+      lat: m.venues.lat ?? ZERO_COVERAGE,
+    },
+    artists: {
+      ...m.artists,
+      officialUrl: m.artists.officialUrl ?? ZERO_COVERAGE,
+    },
   };
 }
