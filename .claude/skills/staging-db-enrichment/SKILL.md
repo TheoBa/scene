@@ -1,10 +1,10 @@
 ---
-name: staging-db
+name: staging-db-enrichment
 description: Run something against the live staging Postgres (Coolify, behind a temporary public-exposure toggle) — applying pending Drizzle migrations, running a one-off backfill/enrichment script (e.g. venue geocoding, artist photo/social enrichment), or an ad-hoc read-only query (e.g. "how many venues have lat/lng on staging", "which artists are still missing photos"). Use when Théo says something like "run it on staging", "check staging for X", "migrate staging", or asks a question that can only be answered by the real staging data, not local dev data. Handles the temporary-public-DB dance from docs/deployment-runbook.md §S5, including reminding Théo to turn exposure back off — never skip that step.
 user-invocable: true
 ---
 
-# staging-db — migrate, backfill, or query the live staging Postgres
+# staging-db-enrichment — migrate, backfill, or query the live staging Postgres
 
 Staging Postgres runs on Coolify's internal Docker network — it isn't reachable
 from the Mac Mini by default, and the web app's runtime image doesn't carry

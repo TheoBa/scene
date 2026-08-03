@@ -371,7 +371,7 @@ Drizzle's `drizzle.__drizzle_migrations` ledger correctly, so later migrations
 continue cleanly — raw `psql` of the SQL would skip the ledger and break the next
 migrate).
 
-The `staging-db` Claude Code skill (`.claude/skills/staging-db/`) automates this
+The `staging-db-enrichment` Claude Code skill (`.claude/skills/staging-db-enrichment/`) automates this
 whole flow — migrating, running a named backfill script, or an ad-hoc read-only
 query against staging — and can be invoked directly instead of following the
 steps below by hand.
