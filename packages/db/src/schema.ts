@@ -117,6 +117,12 @@ export const artists = pgTable("artists", {
   bio: text("bio"),
   imageUrl: text("image_url"),
   officialUrl: text("official_url"),
+  // Filled by `packages/db/seed/backfill-artist-enrichment.ts` from Wikidata,
+  // same "nullable, filled by a one-off script, never a required column"
+  // pattern as `venues.lat`/`lng` — most artists won't have any of these.
+  instagramUrl: text("instagram_url"),
+  facebookUrl: text("facebook_url"),
+  twitterUrl: text("twitter_url"),
   claimedByUserId: text("claimed_by_user_id").references(() => user.id, {
     onDelete: "set null",
   }),
