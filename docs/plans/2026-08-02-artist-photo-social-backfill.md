@@ -1,7 +1,8 @@
 ---
 note_ids: []
-status: plan_done
+status: implemented_pending_review
 created: 2026-08-02
+pr: https://github.com/TheoBa/scene/pull/47
 ---
 
 # One-off backfill: artist photos + social links

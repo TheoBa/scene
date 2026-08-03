@@ -1,7 +1,8 @@
 ---
 note_ids: []
-status: plan_done
+status: implemented_pending_review
 created: 2026-08-03
+pr: https://github.com/TheoBa/scene/pull/50
 ---
 
 # Venue website link (ingested data) + data-quality panel: split sections, track links/coords

@@ -1,7 +1,8 @@
 ---
 note_ids: [3b1c4d1b-43f6-4c31-8b3c-c73447cb0ba2]
-status: plan_done
+status: implemented_pending_review
 created: 2026-08-01
+pr: https://github.com/TheoBa/scene/pull/53
 ---
 
 # Share show link (WhatsApp / Messenger / copy link)
