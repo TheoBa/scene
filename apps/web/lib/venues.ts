@@ -1,6 +1,7 @@
 import { and, asc, count, eq, gte, isNotNull } from "drizzle-orm";
 import { events, performances, venueFollows, venues } from "@scenes/db";
 import { getDb } from "./db";
+import { distanceKm, type Coords } from "./geo";
 
 // Venue-page queries — kept separate from catalogue.ts (event-centric) rather
 // than growing it, mirroring its "card projection / full detail + joins" shape.
@@ -58,6 +59,50 @@ export async function listVenues(): Promise<VenueCard[]> {
     imageUrl: r.imageUrl,
     upcomingCount: countByVenue.get(r.id) ?? 0,
   }));
+}
+
+// "Salles près de chez vous": venues sorted by distance from the viewer, when
+// `near` is given. Without a location (logged out, permission denied), falls
+// back to the same alphabetical list as `listVenues`, capped to `limit` —
+// curated rather than hidden, per the plan.
+export async function getVenuesNear(near?: Coords, limit = 12): Promise<VenueCard[]> {
+  const db = getDb();
+
+  const rows = await db
+    .select({
+      id: venues.id,
+      slug: venues.slug,
+      name: venues.name,
+      imageUrl: venues.imageUrl,
+      lat: venues.lat,
+      lng: venues.lng,
+    })
+    .from(venues)
+    .where(isNotNull(venues.slug))
+    .orderBy(asc(venues.name));
+
+  const counts = await db
+    .select({ venueId: performances.venueId, n: count() })
+    .from(performances)
+    .where(gte(performances.startsAt, new Date()))
+    .groupBy(performances.venueId);
+  const countByVenue = new Map(counts.map((c) => [c.venueId, c.n]));
+
+  let withDistance = rows
+    .filter((r) => !near || (r.lat !== null && r.lng !== null))
+    .map((r) => ({
+      slug: r.slug as string,
+      name: r.name,
+      imageUrl: r.imageUrl,
+      upcomingCount: countByVenue.get(r.id) ?? 0,
+      distanceKm: near ? distanceKm(near, { lat: r.lat as number, lng: r.lng as number }) : null,
+    }));
+
+  if (near) {
+    withDistance = withDistance.sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0));
+  }
+
+  return withDistance.slice(0, limit).map(({ distanceKm: _d, ...card }) => card);
 }
 
 // One venue + its upcoming programme. null if the slug doesn't exist.

@@ -4,12 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { href: "/shows", label: "À l'affiche" },
+  { href: "/shows", label: "À la une" },
   { href: "/mon-espace", label: "Mon Espace" },
   { href: "/communaute", label: "Ma communauté" },
 ] as const;
 
-// Underlined tab bar. `/shows/[slug]` keeps the À l'affiche tab active.
+// Underlined tab bar. `/shows/[slug]` keeps the À la une tab active.
 export function TabNavClient() {
   const pathname = usePathname();
 

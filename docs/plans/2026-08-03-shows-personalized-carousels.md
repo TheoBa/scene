@@ -1,7 +1,8 @@
 ---
 note_ids: ["fbbdf738-2a6e-4498-8bbc-6a1169a2c453"]
-status: plan_done
+status: implemented_pending_review
 created: 2026-08-03
+pr: https://github.com/TheoBa/scene/pull/61
 ---
 
 # "À l'affiche" → "À la une": personalized + curated carousels
