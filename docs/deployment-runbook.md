@@ -511,6 +511,89 @@ Expect `200`. `401` means the token doesn't match what's in Coolify (or the app
 hasn't redeployed since step 3 yet); `404` means `DEV_NOTES_API_TOKEN` isn't set
 in Coolify at all.
 
+## S8. Social login — Google, Facebook, Apple
+
+`apps/web/lib/auth.ts` wires each provider conditionally: it's only turned on
+in better-auth once **both** its `_CLIENT_ID` and `_CLIENT_SECRET` env vars are
+set, and the corresponding button only appears in the UI once its
+`NEXT_PUBLIC_*_ENABLED=true` flag is also set (that flag is read at **build**
+time — see the gotcha at the end of this section). Until then, the app runs
+fine on email/password only.
+
+### Google
+
+Already documented in `.env.example`. If you haven't done this yet:
+
+1. **Browser** — [Google Cloud Console](https://console.cloud.google.com/) →
+   create/select a project → **APIs & Services → Credentials → + Create
+   Credentials → OAuth client ID** → Application type **Web application**.
+2. Add an **Authorized redirect URI**:
+   `https://scenes.badoz.org/api/auth/callback/google` (staging) — add the
+   production URL too once that domain exists.
+3. Copy the **Client ID** and **Client secret** it generates.
+4. **Coolify UI** — web app (S3) → **Environment Variables** → add
+   `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXT_PUBLIC_GOOGLE_ENABLED=true`
+   → **Save** → **Deploy** (redeploy required — see gotcha below).
+
+### Facebook
+
+1. **Browser** — [Meta for Developers](https://developers.facebook.com/) →
+   **My Apps → Create App** → use case **Authenticate and request data from
+   users with Facebook Login** → app type **Consumer**.
+2. In the app dashboard, add the **Facebook Login** product (Settings →
+   Basic gives you the **App ID** / **App Secret**; Facebook Login → Settings
+   is where you add the redirect URI).
+3. Add a **Valid OAuth Redirect URI**:
+   `https://scenes.badoz.org/api/auth/callback/facebook`.
+4. While the app is in **Development mode**, only users listed as
+   admins/developers/testers on the app can actually log in with it — you
+   must submit for **App Review** (Facebook Login permissions: `email`,
+   `public_profile`) before real users can use the button. Budget time for
+   this; it's a review queue, not instant.
+5. **Coolify UI** — same web app → add `FACEBOOK_CLIENT_ID` (the App ID),
+   `FACEBOOK_CLIENT_SECRET` (the App Secret), `NEXT_PUBLIC_FACEBOOK_ENABLED=true`
+   → **Save** → **Deploy**.
+
+### Apple ("Sign in with Apple")
+
+This one is heavier than the other two: it needs a **paid Apple Developer
+Program membership** (99 USD/year), and the "client secret" isn't a static
+string — it's a JWT you generate yourself, signed with a private key, that
+**expires after at most 6 months** and must be regenerated before it does or
+the button silently starts failing.
+
+1. **Browser** — [Apple Developer](https://developer.apple.com/account/) →
+   **Certificates, Identifiers & Profiles → Identifiers**:
+   - Create an **App ID** (if the app doesn't have one yet) with the "Sign in
+     with Apple" capability enabled.
+   - Create a **Services ID** — this is what better-auth calls `APPLE_CLIENT_ID`.
+     Configure it for "Sign in with Apple", associate it with the App ID above,
+     and add the redirect URI:
+     `https://scenes.badoz.org/api/auth/callback/apple`.
+   - Create a **Key** (Keys → + → enable "Sign in with Apple", associate with
+     the App ID) and download the `.p8` private key file **once** — Apple
+     will not let you download it again if you lose it.
+2. **Generate the client-secret JWT** from that private key. This is a script
+   you run locally (or via better-auth's own helper, if you'd rather not
+   hand-roll the JWT signing) — it needs: Team ID, Services ID (`APPLE_CLIENT_ID`),
+   Key ID, and the `.p8` file contents. The output is a signed JWT string valid
+   for up to 6 months; that string is `APPLE_CLIENT_SECRET`.
+3. **Coolify UI** — same web app → add `APPLE_CLIENT_ID` (the Services ID),
+   `APPLE_CLIENT_SECRET` (the JWT from step 2), `NEXT_PUBLIC_APPLE_ENABLED=true`
+   → **Save** → **Deploy**.
+4. **Put a reminder on the calendar** to regenerate `APPLE_CLIENT_SECRET`
+   before it expires (aim for every 5 months to leave margin) — there's no
+   automatic rotation here yet.
+
+### Gotcha: `NEXT_PUBLIC_*` flags need a rebuild, not just a redeploy
+
+Next.js inlines `NEXT_PUBLIC_*` values into the client JS bundle **at build
+time**, not at container start. Setting `NEXT_PUBLIC_FACEBOOK_ENABLED=true` in
+Coolify and clicking **Deploy** is enough *only if* Coolify rebuilds the image
+from source on every deploy (it does, per S3 — there's no cached-image reuse
+configured). If the button doesn't appear after a deploy, confirm the deploy
+log shows a fresh `next build`, not a restart of the existing container.
+
 ---
 
 ## Phase-0 exit checklist
