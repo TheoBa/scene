@@ -1,7 +1,8 @@
 ---
 note_ids: [0f0e5673-db07-4727-b2dc-f1677bf42ec7]
-status: plan_done
+status: implemented_pending_review
 created: 2026-08-01
+pr: https://github.com/TheoBa/scene/pull/52
 ---
 
 # Dev-mode shortcut button to /dev/data-quality

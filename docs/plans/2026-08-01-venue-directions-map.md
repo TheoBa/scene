@@ -1,7 +1,8 @@
 ---
 note_ids: [bc143166-2ade-4688-af06-5a65812f8e69]
-status: plan_done
+status: implemented_pending_review
 created: 2026-08-01
+pr: https://github.com/TheoBa/scene/pull/46
 ---
 
 # Embedded "get there" map card on the venue page

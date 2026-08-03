@@ -1,7 +1,8 @@
 ---
 note_ids: []
-status: plan_done
+status: implemented_pending_review
 created: 2026-08-03
+pr: https://github.com/TheoBa/scene/pull/49
 ---
 
 # One-off backfill: venue photos + bios

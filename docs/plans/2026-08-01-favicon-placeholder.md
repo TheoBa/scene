@@ -1,7 +1,8 @@
 ---
 note_ids: [1dd1f0f5-1975-495f-ad0b-b0d2423be00d]
-status: plan_done
+status: implemented_pending_review
 created: 2026-08-01
+pr: https://github.com/TheoBa/scene/pull/44
 ---
 
 # Browser-tab favicon (placeholder monogram)
