@@ -73,6 +73,40 @@ export default async function ProfilePage({
         )}
       </header>
 
+      {(profile.bio || profile.instagramHandle || profile.websiteUrl) && (
+        <div className="mt-6 space-y-2">
+          {profile.bio && (
+            <p className="whitespace-pre-wrap text-sm text-black/70">
+              {profile.bio}
+            </p>
+          )}
+          {(profile.instagramHandle || profile.websiteUrl) && (
+            <div className="flex flex-wrap gap-3 text-sm">
+              {profile.instagramHandle && (
+                <a
+                  href={`https://instagram.com/${profile.instagramHandle}`}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="font-medium text-[var(--accent)] hover:underline"
+                >
+                  @{profile.instagramHandle}
+                </a>
+              )}
+              {profile.websiteUrl && (
+                <a
+                  href={profile.websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="font-medium text-[var(--accent)] hover:underline"
+                >
+                  {profile.websiteUrl.replace(/^https?:\/\//, "")}
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <section className="mt-10">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-black/40">
           Ses avis

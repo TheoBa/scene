@@ -125,15 +125,18 @@ export interface ProfileReview {
 export interface PublicProfile {
   userId: string;
   pseudo: string;
+  bio: string | null;
+  instagramHandle: string | null;
+  websiteUrl: string | null;
   seenCount: number;
   isFollowing: boolean;
   isSelf: boolean;
   reviews: ProfileReview[];
 }
 
-// A public profile by pseudo: their seen count and their reviews, plus the
-// viewer's relationship (self / following). `viewerId` is undefined for
-// logged-out visitors (invite links work for them too).
+// A public profile by pseudo: their bio/socials, seen count and their
+// reviews, plus the viewer's relationship (self / following). `viewerId` is
+// undefined for logged-out visitors (invite links work for them too).
 export async function getProfileByPseudo(
   pseudo: string,
   viewerId?: string,
@@ -141,7 +144,13 @@ export async function getProfileByPseudo(
   const db = getDb();
 
   const [profile] = await db
-    .select({ userId: profiles.userId, pseudo: profiles.pseudo })
+    .select({
+      userId: profiles.userId,
+      pseudo: profiles.pseudo,
+      bio: profiles.bio,
+      instagramHandle: profiles.instagramHandle,
+      websiteUrl: profiles.websiteUrl,
+    })
     .from(profiles)
     .where(eq(profiles.pseudo, pseudo))
     .limit(1);
@@ -191,6 +200,9 @@ export async function getProfileByPseudo(
   return {
     userId: profile.userId,
     pseudo: profile.pseudo,
+    bio: profile.bio,
+    instagramHandle: profile.instagramHandle,
+    websiteUrl: profile.websiteUrl,
     seenCount,
     isFollowing,
     isSelf: viewerId === profile.userId,

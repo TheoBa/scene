@@ -2,11 +2,16 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import { getUserSeenShows } from "@/lib/espace";
+import { getProfileCompletion } from "@/lib/profile-completion-query";
+import { getSelfProfileFields } from "@/lib/profile-fields-query";
 import { REACTIONS } from "@/lib/reactions";
 import { posterSrc } from "@/lib/poster";
 import { SiteHeader } from "@/components/SiteHeader";
 import { TabNav } from "@/components/TabNav";
+import { ProfileCompletionGauge } from "@/components/ProfileCompletionGauge";
+import { ProfileEditForm } from "@/components/ProfileEditForm";
 import { CommentEditor } from "./CommentEditor";
+import { updateSelfProfile } from "./actions";
 
 export const metadata = { title: "Mon Espace — Scenes" };
 export const dynamic = "force-dynamic";
@@ -17,7 +22,11 @@ export default async function MonEspacePage() {
   const user = await getSessionUser();
   if (!user) redirect("/sign-in");
 
-  const shows = await getUserSeenShows(user.id);
+  const [shows, completion, profileFields] = await Promise.all([
+    getUserSeenShows(user.id),
+    getProfileCompletion(user.id),
+    getSelfProfileFields(user.id),
+  ]);
 
   return (
     <div className="mx-auto min-h-screen max-w-3xl px-6 py-12">
@@ -32,6 +41,16 @@ export default async function MonEspacePage() {
           Les spectacles que vous avez vus, vos réactions et vos mots.
         </p>
       </header>
+
+      {completion && (
+        <div className="mt-8">
+          <ProfileCompletionGauge completion={completion} />
+        </div>
+      )}
+
+      {profileFields && (
+        <ProfileEditForm initial={profileFields} onSave={updateSelfProfile} />
+      )}
 
       {shows.length === 0 ? (
         <div className="mt-12 rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-black/5">
