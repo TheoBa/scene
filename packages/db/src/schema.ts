@@ -258,6 +258,12 @@ export const profiles = pgTable("profiles", {
   pseudo: text("pseudo").notNull().unique(),
   frequency: text("frequency"), // theatre-going cadence (rarely | yearly | monthly | weekly)
   favoriteGenres: text("favorite_genres").array().notNull(), // bounded set, read as a whole
+  // Self-editable extras, added for the profile-completion gauge (see
+  // apps/web/lib/profile-completion.ts) and shown on the public profile
+  // (/u/[pseudo]) as social proof, not just a private checklist item.
+  bio: text("bio"),
+  instagramHandle: text("instagram_handle"), // handle only (no @, no URL) — linked to instagram.com/<handle>
+  websiteUrl: text("website_url"),
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
