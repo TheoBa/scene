@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
+import { buildAmazonSearchUrl } from "@/lib/affiliate";
 import { getShowBySlug, getEventReactions } from "@/lib/catalogue";
 import { getUserSeen } from "@/lib/espace";
 import { formatDateTime } from "@/lib/format";
@@ -46,6 +47,7 @@ export default async function ShowPage({
   const shownDates = show.performances.slice(0, MAX_DATES);
   const moreDates = show.performances.length - shownDates.length;
   const subtitle = [show.author, show.director].filter(Boolean).join(" · ");
+  const amazonUrl = buildAmazonSearchUrl(show.name, show.author);
 
   return (
     <div className="mx-auto min-h-screen max-w-4xl px-6 py-12">
@@ -138,6 +140,20 @@ export default async function ShowPage({
             <div className="mt-4">
               <ShareButtons title={show.name} />
             </div>
+
+            {amazonUrl && (
+              <div className="mt-4 flex flex-col items-center gap-1 sm:items-start">
+                <a
+                  href={amazonUrl}
+                  target="_blank"
+                  rel="nofollow noopener noreferrer"
+                  className="inline-flex w-fit items-center gap-1.5 rounded-full bg-black/[0.04] px-5 py-2.5 text-sm font-semibold text-black/70 ring-1 ring-black/10 transition hover:bg-black/[0.08]"
+                >
+                  📖 Lire la pièce sur Amazon ↗
+                </a>
+                <span className="text-xs text-white/40">lien affilié</span>
+              </div>
+            )}
           </div>
         </div>
       </section>
