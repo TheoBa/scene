@@ -1,3 +1,4 @@
+import { alias } from "drizzle-orm/pg-core";
 import { and, count, desc, eq, ilike, ne } from "drizzle-orm";
 import { attendance, comments, events, follows, profiles, reactions } from "@scenes/db";
 import { getDb } from "./db";
@@ -11,20 +12,31 @@ export interface FeedItem {
   body: string;
   reaction: ReactionKind | null;
   updatedAt: Date;
+  eventId: string;
+  // Whether the viewer themself has attended / reviewed this same show —
+  // powers the "you too?" nudge on the feed card.
+  viewerHasAttended: boolean;
+  viewerHasReviewed: boolean;
 }
 
 // Reviews from the people the user follows, most recent first. You can only
 // follow someone who has a profile, so the pseudo join is always present.
 export async function getFeed(userId: string): Promise<FeedItem[]> {
+  const viewerAttendance = alias(attendance, "viewer_attendance");
+  const viewerComments = alias(comments, "viewer_comments");
+
   const rows = await getDb()
     .select({
       pseudo: profiles.pseudo,
+      eventId: events.id,
       showSlug: events.slug,
       showName: events.name,
       imageUrl: events.imageUrl,
       body: comments.body,
       reactionKind: reactions.kind,
       updatedAt: comments.updatedAt,
+      viewerAttendedAt: viewerAttendance.seenAt,
+      viewerCommentBody: viewerComments.body,
     })
     .from(follows)
     .innerJoin(comments, eq(comments.userId, follows.followeeId))
@@ -37,12 +49,27 @@ export async function getFeed(userId: string): Promise<FeedItem[]> {
         eq(reactions.eventId, comments.eventId),
       ),
     )
+    .leftJoin(
+      viewerAttendance,
+      and(
+        eq(viewerAttendance.userId, userId),
+        eq(viewerAttendance.eventId, comments.eventId),
+      ),
+    )
+    .leftJoin(
+      viewerComments,
+      and(
+        eq(viewerComments.userId, userId),
+        eq(viewerComments.eventId, comments.eventId),
+      ),
+    )
     .where(eq(follows.followerId, userId))
     .orderBy(desc(comments.updatedAt))
     .limit(60);
 
   return rows.map((r) => ({
     pseudo: r.pseudo,
+    eventId: r.eventId,
     showSlug: r.showSlug,
     showName: r.showName,
     imageUrl: r.imageUrl,
@@ -50,6 +77,8 @@ export async function getFeed(userId: string): Promise<FeedItem[]> {
     reaction:
       r.reactionKind && isReactionKind(r.reactionKind) ? r.reactionKind : null,
     updatedAt: r.updatedAt,
+    viewerHasAttended: r.viewerAttendedAt !== null,
+    viewerHasReviewed: r.viewerCommentBody !== null,
   }));
 }
 
