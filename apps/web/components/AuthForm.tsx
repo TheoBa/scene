@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn, signUp, googleEnabled } from "../lib/auth-client";
+import { signIn, signUp, googleEnabled, facebookEnabled, appleEnabled } from "../lib/auth-client";
 
 // Shared sign-in / sign-up card. On success it lands the user on /onboarding —
 // the onboarding page itself redirects onward if they're already onboarded.
@@ -82,20 +82,42 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
         </button>
       </form>
 
-      {googleEnabled && (
+      {(googleEnabled || facebookEnabled || appleEnabled) && (
         <>
           <div className="my-5 flex items-center gap-3 text-xs text-black/40">
             <span className="h-px flex-1 bg-black/10" />
             ou
             <span className="h-px flex-1 bg-black/10" />
           </div>
-          <button
-            type="button"
-            onClick={() => signIn.social({ provider: "google", callbackURL: "/onboarding" })}
-            className="w-full rounded-lg border border-black/15 bg-white px-6 py-3 text-sm font-medium text-black/80 transition hover:border-black/30"
-          >
-            Continuer avec Google
-          </button>
+          <div className="space-y-2.5">
+            {googleEnabled && (
+              <button
+                type="button"
+                onClick={() => signIn.social({ provider: "google", callbackURL: "/onboarding" })}
+                className="w-full rounded-lg border border-black/15 bg-white px-6 py-3 text-sm font-medium text-black/80 transition hover:border-black/30"
+              >
+                Continuer avec Google
+              </button>
+            )}
+            {facebookEnabled && (
+              <button
+                type="button"
+                onClick={() => signIn.social({ provider: "facebook", callbackURL: "/onboarding" })}
+                className="w-full rounded-lg border border-black/15 bg-white px-6 py-3 text-sm font-medium text-black/80 transition hover:border-black/30"
+              >
+                Continuer avec Facebook
+              </button>
+            )}
+            {appleEnabled && (
+              <button
+                type="button"
+                onClick={() => signIn.social({ provider: "apple", callbackURL: "/onboarding" })}
+                className="w-full rounded-lg border border-black/15 bg-white px-6 py-3 text-sm font-medium text-black/80 transition hover:border-black/30"
+              >
+                Continuer avec Apple
+              </button>
+            )}
+          </div>
         </>
       )}
 
