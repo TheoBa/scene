@@ -72,6 +72,8 @@ export async function resolveSourceEvents(db: Db): Promise<ResolveResult> {
       title: sourceEvents.title,
       venueName: sourceEvents.venueName,
       venueAddress: sourceEvents.venueAddress,
+      venueLat: sourceEvents.venueLat,
+      venueLng: sourceEvents.venueLng,
       genre: sourceEvents.genre,
       startsAt: sourceEvents.startsAt,
       performers: sourceEvents.performers,
@@ -103,8 +105,16 @@ export async function resolveSourceEvents(db: Db): Promise<ResolveResult> {
     // collisions since venue names collide far more than show titles once
     // slugified. Existing venues' slugs are untouched (onConflictDoNothing).
     const addressByVenue = new Map<string, string | null>();
+    // First-seen coordinates, when the source reports them directly (e.g.
+    // Ticketmaster's venue object) — spares a geocoding call for these venues;
+    // only ever used on INSERT below, never touches an existing venue's
+    // already-set/curated lat/lng.
+    const coordsByVenue = new Map<string, { lat: number | null; lng: number | null }>();
     for (const r of resolvable) {
       if (!addressByVenue.has(r.venueName)) addressByVenue.set(r.venueName, r.venueAddress ?? null);
+      if (!coordsByVenue.has(r.venueName)) {
+        coordsByVenue.set(r.venueName, { lat: r.venueLat ?? null, lng: r.venueLng ?? null });
+      }
     }
     const venueNames = [...addressByVenue.keys()];
     const existingVenueSlugs = await tx.select({ slug: venues.slug }).from(venues);
@@ -115,7 +125,14 @@ export async function resolveSourceEvents(db: Db): Promise<ResolveResult> {
         venueNames.map((name) => {
           const slug = uniqueSlug(slugify(name), takenVenueSlugs);
           takenVenueSlugs.add(slug);
-          return { name, address: addressByVenue.get(name) ?? null, slug };
+          const coords = coordsByVenue.get(name);
+          return {
+            name,
+            address: addressByVenue.get(name) ?? null,
+            slug,
+            lat: coords?.lat ?? null,
+            lng: coords?.lng ?? null,
+          };
         }),
       )
       .onConflictDoNothing()

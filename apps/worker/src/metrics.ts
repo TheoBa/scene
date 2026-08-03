@@ -34,8 +34,23 @@ export interface MetricsSnapshot {
       Coverage
     >;
   };
-  venues: { total: number; address: Coverage; bio: Coverage; imageUrl: Coverage; claimed: Coverage };
-  artists: { total: number; bio: Coverage; imageUrl: Coverage; claimed: Coverage; linkedToEvent: Coverage };
+  venues: {
+    total: number;
+    address: Coverage;
+    bio: Coverage;
+    imageUrl: Coverage;
+    officialUrl: Coverage;
+    lat: Coverage;
+    claimed: Coverage;
+  };
+  artists: {
+    total: number;
+    bio: Coverage;
+    imageUrl: Coverage;
+    officialUrl: Coverage;
+    claimed: Coverage;
+    linkedToEvent: Coverage;
+  };
   performances: { total: number; upcoming: number; past: number };
   sources: SourceStats[];
 }
@@ -67,6 +82,8 @@ export async function computeMetrics(db: Db): Promise<MetricsSnapshot> {
       address: count(venues.address),
       bio: count(venues.bio),
       imageUrl: count(venues.imageUrl),
+      officialUrl: count(venues.officialUrl),
+      lat: count(venues.lat), // lat/lng are always written together — see backfill scripts
       claimed: count(venues.claimedByUserId),
     })
     .from(venues);
@@ -76,6 +93,7 @@ export async function computeMetrics(db: Db): Promise<MetricsSnapshot> {
       total: count(),
       bio: count(artists.bio),
       imageUrl: count(artists.imageUrl),
+      officialUrl: count(artists.officialUrl),
       claimed: count(artists.claimedByUserId),
     })
     .from(artists);
@@ -121,12 +139,15 @@ export async function computeMetrics(db: Db): Promise<MetricsSnapshot> {
       address: cov(vn.address, vn.total),
       bio: cov(vn.bio, vn.total),
       imageUrl: cov(vn.imageUrl, vn.total),
+      officialUrl: cov(vn.officialUrl, vn.total),
+      lat: cov(vn.lat, vn.total),
       claimed: cov(vn.claimed, vn.total),
     },
     artists: {
       total: ar.total,
       bio: cov(ar.bio, ar.total),
       imageUrl: cov(ar.imageUrl, ar.total),
+      officialUrl: cov(ar.officialUrl, ar.total),
       claimed: cov(ar.claimed, ar.total),
       linkedToEvent: cov(linkedArtists.linked, ar.total),
     },
@@ -157,9 +178,10 @@ export function logMetrics(m: MetricsSnapshot): void {
   );
   console.log(
     `[metrics] venue pages — bio ${pct(m.venues.bio)} · photo ${pct(m.venues.imageUrl)} · ` +
+      `lien officiel ${pct(m.venues.officialUrl)} · coordonnées ${pct(m.venues.lat)} · ` +
       `claimed ${pct(m.venues.claimed)} · artist pages — bio ${pct(m.artists.bio)} · ` +
-      `photo ${pct(m.artists.imageUrl)} · claimed ${pct(m.artists.claimed)} · ` +
-      `linked to a show ${pct(m.artists.linkedToEvent)}`,
+      `photo ${pct(m.artists.imageUrl)} · lien officiel ${pct(m.artists.officialUrl)} · ` +
+      `claimed ${pct(m.artists.claimed)} · linked to a show ${pct(m.artists.linkedToEvent)}`,
   );
   for (const s of m.sources) {
     console.log(

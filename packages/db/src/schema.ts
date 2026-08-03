@@ -187,6 +187,13 @@ export const sourceEvents = pgTable(
     venueAddress: text("venue_address"),
     city: text("city"),
     postalCode: text("postal_code"),
+    // Coordinates as reported by the source itself (e.g. Ticketmaster's venue
+    // object), when it carries them directly — spares a geocoding call at
+    // resolve time. Null for sources that don't report coordinates; the
+    // venue still falls back to `backfill-venue-lats-lngs.ts`'s address
+    // geocoding in that case.
+    venueLat: doublePrecision("venue_lat"),
+    venueLng: doublePrecision("venue_lng"),
     startsAt: timestamp("starts_at", { withTimezone: true }),
     genre: text("genre"),
     subGenre: text("sub_genre"),
