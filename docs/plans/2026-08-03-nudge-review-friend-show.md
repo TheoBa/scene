@@ -1,7 +1,8 @@
 ---
 note_ids: ["e1c033d2-fc85-4c59-8e28-df091a3798ab"]
-status: plan_done
+status: implemented_pending_review
 created: 2026-08-03
+pr: https://github.com/TheoBa/scene/pull/58
 ---
 
 # Nudge to review a show a friend has reviewed
