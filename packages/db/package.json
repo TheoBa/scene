@@ -12,7 +12,8 @@
     "backfill-venue-slugs": "tsx seed/backfill-venue-slugs.ts",
     "backfill-venue-lats-lngs": "tsx seed/backfill-venue-lats-lngs.ts",
     "backfill-artist-enrichment": "tsx seed/backfill-artist-enrichment.ts",
-    "backfill-venue-enrichment": "tsx seed/backfill-venue-enrichment.ts"
+    "backfill-venue-enrichment": "tsx seed/backfill-venue-enrichment.ts",
+    "backfill-venue-curated-list": "tsx seed/backfill-venue-curated-list.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
