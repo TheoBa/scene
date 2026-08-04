@@ -1,12 +1,17 @@
-import { desc, isNotNull } from "drizzle-orm";
-import { ingestionRuns } from "@scenes/db";
+import { count, desc, isNotNull, sql } from "drizzle-orm";
+import { artists, eventArtists, ingestionRuns, venues } from "@scenes/db";
 import { getDb } from "./db";
 
 // Server-only read side of the ingestion metrics (touches the DB). Powers
-// /dev/data-quality. The coverage snapshot is computed by the worker at run end
-// and stored as jsonb on ingestion_runs, so the page just reads the latest one
-// rather than re-running the aggregate here. Shapes mirror apps/worker/src/
-// metrics.ts (kept in sync by hand — the two apps don't import each other).
+// /dev/data-quality. Events/performances/sources coverage only ever changes via
+// ingestion, so that part is a snapshot the worker computes at run end and
+// stores as jsonb on ingestion_runs — cheap to just read the latest one.
+// Venues/artists coverage is queried live here instead: those tables are also
+// written by one-off backfill scripts (geocoding, curated-list enrichment,
+// Wikidata bios) that run outside the ingestion pipeline, so a cached
+// ingestion-run snapshot would silently go stale after every such backfill.
+// Shapes mirror apps/worker/src/metrics.ts (kept in sync by hand — the two
+// apps don't import each other).
 
 export interface Coverage {
   present: number;
@@ -116,34 +121,106 @@ export async function getDataQuality(): Promise<DataQuality> {
     .orderBy(desc(ingestionRuns.startedAt))
     .limit(1);
 
+  const metrics = normalizeMetrics(latest?.metrics);
+  if (metrics) {
+    metrics.venues = await getVenueCoverage(db);
+    metrics.artists = await getArtistCoverage(db);
+  }
+
   return {
-    metrics: normalizeMetrics(latest?.metrics),
+    metrics,
     metricsAt: latest?.startedAt ?? null,
     runs: runs.map((r) => ({ ...r, sourceBreakdown: r.sourceBreakdown as SourceBreakdown[] | null })),
   };
 }
 
-const ZERO_COVERAGE: Coverage = { present: 0, total: 0, pct: 0 };
+const cov = (present: number, total: number): Coverage => ({
+  present,
+  total,
+  pct: total ? Math.round((present / total) * 1000) / 1000 : 0,
+});
+
+async function getVenueCoverage(db: ReturnType<typeof getDb>): Promise<MetricsSnapshot["venues"]> {
+  const [vn] = await db
+    .select({
+      total: count(),
+      address: count(venues.address),
+      bio: count(venues.bio),
+      imageUrl: count(venues.imageUrl),
+      officialUrl: count(venues.officialUrl),
+      lat: count(venues.lat), // lat/lng are always written together — see backfill scripts
+      claimed: count(venues.claimedByUserId),
+    })
+    .from(venues);
+
+  return {
+    total: vn.total,
+    address: cov(vn.address, vn.total),
+    bio: cov(vn.bio, vn.total),
+    imageUrl: cov(vn.imageUrl, vn.total),
+    officialUrl: cov(vn.officialUrl, vn.total),
+    lat: cov(vn.lat, vn.total),
+    claimed: cov(vn.claimed, vn.total),
+  };
+}
+
+async function getArtistCoverage(db: ReturnType<typeof getDb>): Promise<MetricsSnapshot["artists"]> {
+  const [ar] = await db
+    .select({
+      total: count(),
+      bio: count(artists.bio),
+      imageUrl: count(artists.imageUrl),
+      officialUrl: count(artists.officialUrl),
+      claimed: count(artists.claimedByUserId),
+    })
+    .from(artists);
+
+  const [linked] = await db
+    .select({ linked: sql<number>`count(distinct ${eventArtists.artistId})::int` })
+    .from(eventArtists);
+
+  return {
+    total: ar.total,
+    bio: cov(ar.bio, ar.total),
+    imageUrl: cov(ar.imageUrl, ar.total),
+    officialUrl: cov(ar.officialUrl, ar.total),
+    claimed: cov(ar.claimed, ar.total),
+    linkedToEvent: cov(linked.linked, ar.total),
+  };
+}
 
 // `metrics` is a jsonb snapshot written by whatever worker code ran the LAST
 // ingestion — it can be older than the page rendering it (e.g. right after a
 // deploy that added a new tracked field, before the next 05:00 cron run
 // regenerates the snapshot). Filling in zero-Coverage for any field an older
 // snapshot doesn't have keeps the page rendering instead of crashing on
-// `undefined.pct`.
+// `undefined.pct`. venues/artists get overwritten with live queries right
+// after this by the caller, but still need placeholder shapes here in case an
+// old snapshot is missing the key entirely.
+const ZERO_COVERAGE: Coverage = { present: 0, total: 0, pct: 0 };
+const ZERO_VENUES: MetricsSnapshot["venues"] = {
+  total: 0,
+  address: ZERO_COVERAGE,
+  bio: ZERO_COVERAGE,
+  imageUrl: ZERO_COVERAGE,
+  officialUrl: ZERO_COVERAGE,
+  lat: ZERO_COVERAGE,
+  claimed: ZERO_COVERAGE,
+};
+const ZERO_ARTISTS: MetricsSnapshot["artists"] = {
+  total: 0,
+  bio: ZERO_COVERAGE,
+  imageUrl: ZERO_COVERAGE,
+  officialUrl: ZERO_COVERAGE,
+  claimed: ZERO_COVERAGE,
+  linkedToEvent: ZERO_COVERAGE,
+};
 function normalizeMetrics(raw: unknown): MetricsSnapshot | null {
   if (!raw) return null;
   const m = raw as MetricsSnapshot;
   return {
     ...m,
-    venues: {
-      ...m.venues,
-      officialUrl: m.venues.officialUrl ?? ZERO_COVERAGE,
-      lat: m.venues.lat ?? ZERO_COVERAGE,
-    },
-    artists: {
-      ...m.artists,
-      officialUrl: m.artists.officialUrl ?? ZERO_COVERAGE,
-    },
+    venues: m.venues ?? ZERO_VENUES,
+    artists: m.artists ?? ZERO_ARTISTS,
   };
 }
