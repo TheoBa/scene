@@ -32,3 +32,16 @@ export type DevNoteStatus = (typeof DEV_NOTE_STATUSES)[number]["value"];
 export function isDevNoteStatus(v: string): v is DevNoteStatus {
   return DEV_NOTE_STATUSES.some((s) => s.value === v);
 }
+
+// Attachment rules shared by the widget (client-side pre-check, so a rejected
+// file doesn't waste a submit round-trip) and the server action (real check —
+// the client one is only a convenience). Kept generous but bounded: this is an
+// admin tool storing files inline as base64, not a document platform.
+export const DEV_ATTACHMENT_ACCEPT = "image/*,application/pdf";
+export const DEV_ATTACHMENT_ALLOWED_MIME_PREFIXES = ["image/", "application/pdf"];
+export const DEV_ATTACHMENT_MAX_BYTES = 8_000_000; // per file, before base64 overhead
+export const DEV_ATTACHMENT_MAX_COUNT = 5;
+
+export function isAllowedAttachmentMimeType(mimeType: string): boolean {
+  return DEV_ATTACHMENT_ALLOWED_MIME_PREFIXES.some((prefix) => mimeType.startsWith(prefix));
+}

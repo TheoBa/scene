@@ -3,9 +3,17 @@ note_ids: ["bc739b2a-3648-41af-9bfb-79ffa53b1212"]
 status: implemented_pending_review
 created: 2026-08-03
 pr: https://github.com/TheoBa/scene/pull/60
+superseded_by: docs/plans/2026-08-04-dev-notes-multi-attachments.md
 ---
 
 # Screenshots in dev-notes
+
+> **Superseded 2026-08-04.** This shipped an auto-capture of the *current page*
+> (html2canvas). Théo's actual ask was to attach one or more *existing*
+> documents (a screenshot taken elsewhere, a PDF, …) to a note — a
+> misunderstanding of the original one-line source note. See
+> [2026-08-04-dev-notes-multi-attachments.md](2026-08-04-dev-notes-multi-attachments.md)
+> for the corrected design, which replaces everything below.
 
 ## Source notes
 > Ajouter des captures d'ecran dans les notes du dev-mode (pour passer un support visuel quand necessaire) — idea, dropped from /dev/notes

@@ -88,19 +88,35 @@ function NoteList({
               {n.body}
             </p>
 
-            {n.screenshotDataUrl && (
-              <a
-                href={n.screenshotDataUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-block"
-              >
-                <img
-                  src={n.screenshotDataUrl}
-                  alt="Capture d'écran jointe"
-                  className="h-24 w-40 rounded-lg object-cover ring-1 ring-black/10 transition hover:opacity-80"
-                />
-              </a>
+            {n.attachments.length > 0 && (
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {n.attachments.map((a) => (
+                  <li key={a.id}>
+                    {a.mimeType.startsWith("image/") ? (
+                      <a href={a.dataUrl} target="_blank" rel="noreferrer">
+                        <img
+                          src={a.dataUrl}
+                          alt={a.filename}
+                          className="h-24 w-24 rounded-lg object-cover ring-1 ring-black/10 transition hover:opacity-80"
+                        />
+                      </a>
+                    ) : (
+                      <a
+                        href={a.dataUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={a.filename}
+                        className="flex h-24 w-24 flex-col items-center justify-center gap-1 rounded-lg bg-black/[0.04] px-2 text-center ring-1 ring-black/10 transition hover:bg-black/[0.08]"
+                      >
+                        <span className="text-2xl">📄</span>
+                        <span className="w-full truncate text-[10px] text-black/60">
+                          {a.filename}
+                        </span>
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
             )}
 
             <div className="mt-3 flex items-center justify-between gap-3">

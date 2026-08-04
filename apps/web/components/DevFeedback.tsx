@@ -3,16 +3,27 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { submitDevNote } from "@/app/dev/actions";
-import { DEV_CATEGORIES, type DevCategory } from "@/lib/dev-notes";
+import {
+  DEV_ATTACHMENT_ACCEPT,
+  DEV_ATTACHMENT_MAX_BYTES,
+  DEV_ATTACHMENT_MAX_COUNT,
+  DEV_CATEGORIES,
+  isAllowedAttachmentMimeType,
+  type DevCategory,
+} from "@/lib/dev-notes";
 
-// Screenshots are downscaled to this max width before encoding, to keep the
-// base64 data URL (stored inline in dev_notes, no object storage) reasonable.
-const MAX_SCREENSHOT_WIDTH = 1280;
+interface PendingAttachment {
+  key: string; // client-only, for React keys / removal — not persisted
+  filename: string;
+  mimeType: string;
+  dataUrl: string;
+}
 
 // Dev-mode feedback widget. Only mounted for allowlisted users (the layout gates
 // it). A floating button — or ⌘/Ctrl+I — toggles a panel to drop a bug/idea note
-// tagged with the current page. Submissions land in dev_notes, triaged at
-// /dev/notes.
+// tagged with the current page, optionally with one or more documents attached
+// (a screenshot taken elsewhere, a PDF, …). Submissions land in dev_notes,
+// triaged at /dev/notes.
 export function DevFeedback() {
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState<DevCategory>("idea");
@@ -20,9 +31,10 @@ export function DevFeedback() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [screenshot, setScreenshot] = useState<string | null>(null);
-  const [capturing, setCapturing] = useState(false);
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [dragOver, setDragOver] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ⌘I (mac) / Ctrl+I toggles the panel; Esc closes it.
   useEffect(() => {
@@ -48,11 +60,15 @@ export function DevFeedback() {
         body: value,
         category,
         path,
-        screenshotDataUrl: screenshot ?? undefined,
+        attachments: attachments.map(({ filename, mimeType, dataUrl }) => ({
+          filename,
+          mimeType,
+          dataUrl,
+        })),
       });
       if (res.ok) {
         setBody("");
-        setScreenshot(null);
+        setAttachments([]);
         setDone(true);
         setTimeout(() => setDone(false), 2000);
       } else {
@@ -61,38 +77,70 @@ export function DevFeedback() {
     });
   }
 
-  // Capture the page behind the widget. Briefly hides the panel so it doesn't
-  // show up in its own screenshot, then downscales the canvas before encoding
-  // to keep the resulting data URL reasonably small.
-  async function captureScreenshot() {
+  // Read and validate a batch of files (from the picker, a drop, or a paste),
+  // appending whatever passes to the pending attachment list. Validates
+  // against a snapshot of the current count rather than inside the
+  // setAttachments updater — kicking off FileReaders (a side effect) from
+  // within a functional updater would run twice under React StrictMode's
+  // dev-mode double-invocation, double-adding every file.
+  function addFiles(files: FileList | File[]) {
+    const list = Array.from(files);
+    if (list.length === 0) return;
     setError(null);
-    setCapturing(true);
-    const panel = panelRef.current;
-    const prevVisibility = panel?.style.visibility;
-    if (panel) panel.style.visibility = "hidden";
-    try {
-      const html2canvas = (await import("html2canvas-pro")).default;
-      const canvas = await html2canvas(document.body, {
-        useCORS: true,
-        logging: false,
-      });
-      const scale = Math.min(1, MAX_SCREENSHOT_WIDTH / canvas.width);
-      let output = canvas;
-      if (scale < 1) {
-        const scaled = document.createElement("canvas");
-        scaled.width = Math.round(canvas.width * scale);
-        scaled.height = Math.round(canvas.height * scale);
-        const ctx = scaled.getContext("2d");
-        ctx?.drawImage(canvas, 0, 0, scaled.width, scaled.height);
-        output = scaled;
-      }
-      setScreenshot(output.toDataURL("image/png"));
-    } catch {
-      setError("Échec de la capture d'écran.");
-    } finally {
-      if (panel) panel.style.visibility = prevVisibility ?? "";
-      setCapturing(false);
+
+    const room = DEV_ATTACHMENT_MAX_COUNT - attachments.length;
+    if (room <= 0) {
+      setError(`Maximum ${DEV_ATTACHMENT_MAX_COUNT} documents.`);
+      return;
     }
+    const accepted: File[] = [];
+    for (const file of list) {
+      if (accepted.length >= room) break;
+      if (!isAllowedAttachmentMimeType(file.type)) {
+        setError(`Type non supporté : ${file.name}`);
+        continue;
+      }
+      if (file.size > DEV_ATTACHMENT_MAX_BYTES) {
+        setError(`Trop volumineux (>8 Mo) : ${file.name}`);
+        continue;
+      }
+      accepted.push(file);
+    }
+    for (const file of accepted) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result;
+        if (typeof dataUrl !== "string") return;
+        setAttachments((prev) => [
+          ...prev,
+          {
+            key: `${file.name}-${file.size}-${Date.now()}-${Math.random()}`,
+            filename: file.name || "document",
+            mimeType: file.type,
+            dataUrl,
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function removeAttachment(key: string) {
+    setAttachments((current) => current.filter((a) => a.key !== key));
+  }
+
+  function onDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
+  }
+
+  function onPaste(e: React.ClipboardEvent<HTMLElement>) {
+    const files = Array.from(e.clipboardData.items)
+      .filter((item) => item.kind === "file")
+      .map((item) => item.getAsFile())
+      .filter((f): f is File => f !== null);
+    if (files.length > 0) addFiles(files);
   }
 
   return (
@@ -109,7 +157,16 @@ export function DevFeedback() {
       {open && (
         <div
           ref={panelRef}
-          className="fixed bottom-20 right-5 z-50 w-80 rounded-2xl bg-white p-4 shadow-2xl ring-1 ring-black/10"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+          onPaste={onPaste}
+          className={`fixed bottom-20 right-5 z-50 w-80 rounded-2xl bg-white p-4 shadow-2xl ring-1 transition ${
+            dragOver ? "ring-2 ring-[var(--accent)]" : "ring-1 ring-black/10"
+          }`}
         >
           <div className="flex items-center justify-between">
             <span className="font-display text-sm font-bold">Dev mode</span>
@@ -143,6 +200,7 @@ export function DevFeedback() {
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
+            onPaste={onPaste}
             rows={4}
             maxLength={4000}
             autoFocus
@@ -152,33 +210,67 @@ export function DevFeedback() {
 
           {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
 
-          {screenshot ? (
-            <div className="mt-2 flex items-center gap-2">
-              <a href={screenshot} target="_blank" rel="noreferrer">
-                <img
-                  src={screenshot}
-                  alt="Capture d'écran jointe"
-                  className="h-14 w-20 rounded-lg object-cover ring-1 ring-black/10"
-                />
-              </a>
-              <button
-                type="button"
-                onClick={() => setScreenshot(null)}
-                className="text-xs font-semibold text-black/50 hover:text-red-600"
-              >
-                Retirer
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={captureScreenshot}
-              disabled={capturing}
-              className="mt-2 rounded-lg bg-black/[0.04] px-2 py-1.5 text-xs font-semibold text-black/60 transition hover:bg-black/[0.08] disabled:opacity-50"
-            >
-              {capturing ? "Capture…" : "📸 Joindre une capture"}
-            </button>
+          {attachments.length > 0 && (
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {attachments.map((a) => (
+                <li key={a.key} className="relative">
+                  {a.mimeType.startsWith("image/") ? (
+                    <a href={a.dataUrl} target="_blank" rel="noreferrer">
+                      <img
+                        src={a.dataUrl}
+                        alt={a.filename}
+                        className="h-14 w-14 rounded-lg object-cover ring-1 ring-black/10"
+                      />
+                    </a>
+                  ) : (
+                    <a
+                      href={a.dataUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={a.filename}
+                      className="flex h-14 w-14 flex-col items-center justify-center rounded-lg bg-black/[0.04] px-1 ring-1 ring-black/10"
+                    >
+                      <span className="text-lg">📄</span>
+                      <span className="w-full truncate text-center text-[9px] text-black/60">
+                        {a.filename}
+                      </span>
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(a.key)}
+                    aria-label={`Retirer ${a.filename}`}
+                    className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-black text-[10px] text-white hover:bg-red-600"
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept={DEV_ATTACHMENT_ACCEPT}
+            onChange={(e) => {
+              if (e.target.files) addFiles(e.target.files);
+              e.target.value = "";
+            }}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={attachments.length >= DEV_ATTACHMENT_MAX_COUNT}
+            className="mt-2 rounded-lg bg-black/[0.04] px-2 py-1.5 text-xs font-semibold text-black/60 transition hover:bg-black/[0.08] disabled:opacity-50"
+          >
+            📎 Joindre un document
+          </button>
+          <p className="mt-1 text-[10px] text-black/40">
+            Ou glissez-déposez, ou collez (⌘V) une image copiée.
+          </p>
 
           <div className="mt-2 flex items-center justify-end">
             <button

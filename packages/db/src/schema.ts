@@ -413,14 +413,30 @@ export const devNotes = pgTable("dev_notes", {
   category: text("category").notNull().default("idea"), // bug | idea | other
   path: text("path"), // page the note was dropped from (pathname + query)
   status: text("status").notNull().default("untackled"), // untackled | waiting_for_input | plan_done | implemented_pending_review | done
-  // Optional screenshot attached from the widget, stored inline as a base64 PNG
-  // data URL — no object storage (S3/R2) exists in this project yet, and at
-  // this tool's scale (two internal users) standing one up isn't worth it.
-  // Revisit if row sizes become a real problem.
-  screenshotDataUrl: text("screenshot_data_url"),
   userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Documents (screenshots, PDFs, …) attached to a note from the widget, stored
+// inline as base64 data URLs — no object storage (S3/R2) exists in this
+// project yet, and at this tool's scale (two internal users) standing one up
+// isn't worth it. Revisit if row sizes become a real problem. Rows are pruned
+// once their note is marked "done" (see setNoteStatus) so the table doesn't
+// grow unbounded with resolved notes.
+export const devNoteAttachments = pgTable(
+  "dev_note_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    noteId: uuid("note_id")
+      .notNull()
+      .references(() => devNotes.id, { onDelete: "cascade" }),
+    filename: text("filename").notNull(),
+    mimeType: text("mime_type").notNull(),
+    dataUrl: text("data_url").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("dev_note_attachments_note_id_idx").on(t.noteId)],
+);
 
 // ---------- Claims (venue/artist ownership claim requests) ----------
 // A user asserts "this venue/artist page is mine". Goes into a queue Théo

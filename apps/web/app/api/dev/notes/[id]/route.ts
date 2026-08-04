@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { devNotes } from "@scenes/db";
+import { devNoteAttachments, devNotes } from "@scenes/db";
 import { getDb } from "@/lib/db";
 import { checkDevNotesApiAuth } from "@/lib/dev-notes-api-auth";
 import { isDevNoteStatus } from "@/lib/dev-notes";
@@ -23,7 +23,8 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
 
-  const [updated] = await getDb()
+  const db = getDb();
+  const [updated] = await db
     .update(devNotes)
     .set({ status })
     .where(eq(devNotes.id, id))
@@ -31,6 +32,10 @@ export async function PATCH(
 
   if (!updated) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (status === "done") {
+    await db.delete(devNoteAttachments).where(eq(devNoteAttachments.noteId, id));
   }
 
   return NextResponse.json({ ok: true });
