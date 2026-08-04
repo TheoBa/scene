@@ -5,27 +5,71 @@
 //     are currently null — never overwrites a value that's already set, same
 //     convention as every other backfill-venue-*.ts script.
 //   - on no match: inserts the curated theatre as a brand-new venue.
-// Matching is deliberately "best guess, maximize coverage" rather than the
-// stricter "skip rather than guess" used by backfill-venue-enrichment.ts —
-// Théo's explicit call, since this list is hand-vetted and false negatives
-// (inserting a duplicate venue) are just as costly as false positives here.
-// That tradeoff means every decision is logged so mismatches can be spotted
-// by skimming the run output, not just inferred from a summary count.
+//
+// Matching compares CORE tokens only (name with generic words like "théâtre",
+// "centre", "de/du/la/le/les" stripped out first). A first version compared
+// full normalized names directly and it was too permissive: short generic
+// names like "Théâtre de Poissy" and "Théâtre de Paris" share enough
+// characters ("theatre de") to score deceptively high on raw Levenshtein
+// similarity even though they're unrelated venues in different départements —
+// confirmed on a real staging run, where 35 of 67 matched venues were hit by
+// 2+ different curated entries and ended up with wrong lat/lng/officialUrl
+// (see PR #64 discussion). Stripping the generic words first means the score
+// reflects only the actually-distinctive part of the name.
 //   npm run backfill-venue-curated-list -w packages/db     (needs DATABASE_URL)
+//   npm run backfill-venue-curated-list -w packages/db -- --dry-run   (no writes, just the log)
 import { createDb, slugify, uniqueSlug, venues } from "../src/index.js";
 import { eq } from "drizzle-orm";
 import { curatedTheatres } from "./curated-theatres-data.js";
 
-const MATCH_THRESHOLD = 0.55;
+const MATCH_THRESHOLD = 0.75;
+const DRY_RUN = process.argv.includes("--dry-run");
+
+// Words too generic to help distinguish one theatre from another — stripped
+// before scoring so the comparison rests on the actually distinctive part of
+// the name (e.g. "dejazet" vs "paris", not "theatre de dejazet" vs "theatre de paris").
+const STOPWORDS = new Set([
+  "theatre",
+  "centre",
+  "espace",
+  "salle",
+  "scene",
+  "municipal",
+  "municipale",
+  "national",
+  "nationale",
+  "dramatique",
+  "culturel",
+  "conventionnee",
+  "de",
+  "du",
+  "des",
+  "la",
+  "le",
+  "les",
+  "l",
+  "et",
+  "a",
+  "au",
+  "aux",
+]);
 
 function normalizeName(name: string): string {
   return name
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "") // combining diacritics
     .toLowerCase()
-    .replace(/^(le |la |les |l'|l’)/, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+// The distinctive core of a name: normalized, generic words dropped. Two
+// names with an empty core (e.g. a name that's ONLY generic words) can never
+// be trusted to match anything — there's nothing left to compare.
+function coreTokens(name: string): string[] {
+  return normalizeName(name)
+    .split(" ")
+    .filter((token) => token.length > 0 && !STOPWORDS.has(token));
 }
 
 // Levenshtein edit distance, then converted to a 0..1 similarity ratio
@@ -53,10 +97,16 @@ function similarity(a: string, b: string): number {
   return 1 - levenshtein(a, b) / maxLen;
 }
 
+function coreSimilarity(a: string, b: string): number {
+  const coreA = coreTokens(a).join(" ");
+  const coreB = coreTokens(b).join(" ");
+  if (coreA.length === 0 || coreB.length === 0) return 0; // nothing distinctive to compare
+  return similarity(coreA, coreB);
+}
+
 interface ExistingVenue {
   id: string;
   name: string;
-  normalizedName: string;
   address: string | null;
   lat: number | null;
   lng: number | null;
@@ -64,16 +114,17 @@ interface ExistingVenue {
 }
 
 function bestMatch(curatedName: string, candidates: ExistingVenue[]): { venue: ExistingVenue; score: number } | null {
-  const normalizedCurated = normalizeName(curatedName);
   let best: { venue: ExistingVenue; score: number } | null = null;
   for (const candidate of candidates) {
-    const score = similarity(normalizedCurated, candidate.normalizedName);
+    const score = coreSimilarity(curatedName, candidate.name);
     if (!best || score > best.score) best = { venue: candidate, score };
   }
   return best;
 }
 
 async function main(): Promise<void> {
+  if (DRY_RUN) console.log("[backfill-venue-curated-list] DRY RUN — no writes will be made\n");
+
   const db = createDb();
 
   const rows = await db
@@ -91,7 +142,6 @@ async function main(): Promise<void> {
   const existing: ExistingVenue[] = rows.map((r) => ({
     id: r.id,
     name: r.name,
-    normalizedName: normalizeName(r.name),
     address: r.address,
     lat: r.lat,
     lng: r.lng,
@@ -126,7 +176,12 @@ async function main(): Promise<void> {
       }
 
       if (filled.length > 0) {
-        await db.update(venues).set(patch).where(eq(venues.id, venue.id));
+        if (!DRY_RUN) await db.update(venues).set(patch).where(eq(venues.id, venue.id));
+        // Keep the in-memory copy in sync so a LATER curated entry that also
+        // matches this same venue sees the fields as already filled, instead
+        // of re-deriving "is this null?" from a now-stale snapshot and
+        // overwriting what this iteration just wrote.
+        Object.assign(venue, patch);
         matchedFilled++;
         console.log(
           `[MATCH score=${score.toFixed(2)}] "${theatre.name}" -> existing "${venue.name}" (${venue.id}) filled: ${filled.join(", ")}`,
@@ -140,41 +195,47 @@ async function main(): Promise<void> {
     } else {
       const slug = uniqueSlug(slugify(theatre.name), takenSlugs);
       takenSlugs.add(slug);
-      const [row] = await db
-        .insert(venues)
-        .values({
-          name: theatre.name,
-          slug,
-          address: theatre.address,
-          lat: theatre.lat,
-          lng: theatre.lng,
-          officialUrl: theatre.website,
-        })
-        .onConflictDoNothing()
-        .returning({ id: venues.id });
-      // onConflictDoNothing() returns nothing on a name collision (unique
-      // constraint) — skip adding to `existing` in that rare case rather than
-      // pushing a bogus id that later updates would silently no-op against.
-      if (row) {
-        existing.push({
-          id: row.id,
-          name: theatre.name,
-          normalizedName: normalizeName(theatre.name),
-          address: theatre.address,
-          lat: theatre.lat,
-          lng: theatre.lng,
-          officialUrl: theatre.website,
-        });
+      const newVenue: ExistingVenue = {
+        id: DRY_RUN ? `dry-run-${slug}` : "",
+        name: theatre.name,
+        address: theatre.address,
+        lat: theatre.lat,
+        lng: theatre.lng,
+        officialUrl: theatre.website,
+      };
+      if (!DRY_RUN) {
+        const [row] = await db
+          .insert(venues)
+          .values({
+            name: theatre.name,
+            slug,
+            address: theatre.address,
+            lat: theatre.lat,
+            lng: theatre.lng,
+            officialUrl: theatre.website,
+          })
+          .onConflictDoNothing()
+          .returning({ id: venues.id });
+        // onConflictDoNothing() returns nothing on a name collision (unique
+        // constraint) — skip adding to `existing` in that rare case rather
+        // than pushing a bogus id that a later update would silently no-op
+        // against.
+        if (!row) {
+          console.log(`[NEW] "${theatre.name}" insert skipped — name collision with an existing venue`);
+          continue;
+        }
+        newVenue.id = row.id;
       }
+      existing.push(newVenue);
       inserted++;
       console.log(
-        `[NEW] "${theatre.name}"${match ? ` (best candidate "${match.venue.name}" scored ${match.score.toFixed(2)}, below threshold)` : ""} inserted as /salle/${slug}`,
+        `[NEW] "${theatre.name}"${match ? ` (best candidate "${match.venue.name}" scored ${match.score.toFixed(2)}, below threshold)` : ""} ${DRY_RUN ? "would insert" : "inserted"} as /salle/${slug}`,
       );
     }
   }
 
   console.log(
-    `[backfill-venue-curated-list] done — ${matchedFilled} matched+filled, ${matchedNoop} matched (already complete), ${inserted} inserted new, of ${curatedTheatres.length} total`,
+    `\n[backfill-venue-curated-list] done — ${matchedFilled} matched+filled, ${matchedNoop} matched (already complete), ${inserted} inserted new, of ${curatedTheatres.length} total`,
   );
 }
 
