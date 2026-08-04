@@ -43,6 +43,15 @@ npm run ingest -w apps/worker      # run ingestion once and exit
 docker compose --profile full up --build
 ```
 
+**If `db:migrate`/`db:generate` or a direct `psql localhost` connection behaves oddly** (auth errors like `role "scenes" does not exist`, silent hangs, or `db:migrate` exiting 1 with no message) — check for a stray local Postgres bound to the same port as Docker's:
+
+```bash
+lsof -nP -iTCP:5432 -sTCP:LISTEN   # more than one process here = conflict
+brew services list | grep postgres
+```
+
+A Homebrew-managed Postgres (e.g. `postgresql@14`) can end up running in the background — from earlier local testing, an old tutorial, etc. — and silently intercept connections meant for the project's Docker Postgres. If found, it's fine to `brew services stop <name>`; it isn't part of this project.
+
 ## Infrastructure
 
 | | Staging (now) | Production (later) |

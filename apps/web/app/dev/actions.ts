@@ -4,14 +4,20 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { getDevAccess } from "@/lib/dev-access";
-import { artists, claims, devNotes, venues } from "@scenes/db";
-import { isDevCategory, isDevNoteStatus } from "@/lib/dev-notes";
+import { artists, claims, devNoteAttachments, devNotes, venues } from "@scenes/db";
+import {
+  DEV_ATTACHMENT_MAX_BYTES,
+  DEV_ATTACHMENT_MAX_COUNT,
+  isAllowedAttachmentMimeType,
+  isDevCategory,
+  isDevNoteStatus,
+} from "@/lib/dev-notes";
 
 const MAX_BODY = 4000;
-// Screenshots are downscaled to 1280px wide client-side before encoding, so a
-// PNG data URL comfortably fits well under this; this is just a backstop
-// against a pathological capture.
-const MAX_SCREENSHOT_DATA_URL = 5_000_000;
+// Base64 overhead is ~4/3 of the raw file size; leave headroom above the
+// client-side per-file cap (DEV_ATTACHMENT_MAX_BYTES) rather than derive it
+// exactly — this is just a backstop against a pathological upload.
+const MAX_ATTACHMENT_DATA_URL = DEV_ATTACHMENT_MAX_BYTES * 2;
 
 export type SubmitDevNoteResult =
   | { ok: true }
@@ -23,7 +29,7 @@ export async function submitDevNote(input: {
   body: string;
   category: string;
   path: string;
-  screenshotDataUrl?: string;
+  attachments?: { filename: string; mimeType: string; dataUrl: string }[];
 }): Promise<SubmitDevNoteResult> {
   const dev = await getDevAccess();
   if (!dev) return { ok: false, error: "Accès refusé." };
@@ -35,17 +41,31 @@ export async function submitDevNote(input: {
   const category = isDevCategory(input.category) ? input.category : "idea";
   const path = input.path.slice(0, 500) || null;
 
-  const screenshot = input.screenshotDataUrl?.startsWith("data:image/")
-    ? input.screenshotDataUrl.slice(0, MAX_SCREENSHOT_DATA_URL)
-    : null;
+  const attachments = (input.attachments ?? [])
+    .filter(
+      (a) =>
+        isAllowedAttachmentMimeType(a.mimeType) &&
+        a.dataUrl.startsWith("data:") &&
+        a.dataUrl.length <= MAX_ATTACHMENT_DATA_URL,
+    )
+    .slice(0, DEV_ATTACHMENT_MAX_COUNT);
 
-  await getDb().insert(devNotes).values({
-    body,
-    category,
-    path,
-    screenshotDataUrl: screenshot,
-    userId: dev.id,
-  });
+  const db = getDb();
+  const [note] = await db
+    .insert(devNotes)
+    .values({ body, category, path, userId: dev.id })
+    .returning({ id: devNotes.id });
+
+  if (attachments.length > 0) {
+    await db.insert(devNoteAttachments).values(
+      attachments.map((a) => ({
+        noteId: note.id,
+        filename: a.filename.slice(0, 255),
+        mimeType: a.mimeType,
+        dataUrl: a.dataUrl,
+      })),
+    );
+  }
 
   revalidatePath("/dev/notes");
   return { ok: true };
@@ -64,7 +84,15 @@ export async function setNoteStatus(
   if (!dev) return { ok: false, error: "Accès refusé." };
   if (!isDevNoteStatus(status)) return { ok: false, error: "Statut inconnu." };
 
-  await getDb().update(devNotes).set({ status }).where(eq(devNotes.id, id));
+  const db = getDb();
+  await db.update(devNotes).set({ status }).where(eq(devNotes.id, id));
+
+  // Once a note is closed out, its attached documents have served their
+  // purpose (shown to whoever reviewed the fix) — drop them so the table
+  // doesn't grow unbounded with resolved notes' base64 payloads.
+  if (status === "done") {
+    await db.delete(devNoteAttachments).where(eq(devNoteAttachments.noteId, id));
+  }
 
   revalidatePath("/dev/notes");
   return { ok: true, status };
