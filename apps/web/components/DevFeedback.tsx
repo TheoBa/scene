@@ -200,7 +200,6 @@ export function DevFeedback() {
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            onPaste={onPaste}
             rows={4}
             maxLength={4000}
             autoFocus
