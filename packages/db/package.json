@@ -14,10 +14,10 @@
     "backfill-artist-enrichment": "tsx seed/backfill-artist-enrichment.ts",
     "backfill-venue-enrichment": "tsx seed/backfill-venue-enrichment.ts",
     "backfill-venue-curated-list": "tsx seed/backfill-venue-curated-list.ts",
-    "backfill-event-details": "tsx seed/backfill-event-details.ts"
+    "list-event-detail-candidates": "tsx seed/list-event-detail-candidates.ts",
+    "apply-event-details": "tsx seed/apply-event-details.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.70.1",
     "drizzle-orm": "^0.45.2",
     "next": "^16.2.11",
     "pg": "^8.16.0"
