@@ -6,19 +6,26 @@ Knowledge base for evaluating and building an ingestion path against the
 a strong base. Sister docs: `technical-roadmap.md`, `scenes-knowledge-base.md`
 (data-sourcing & legal strategy, decision log).
 
-> **Status (2026-07-29):** Key obtained and smoke-tested against live Paris data.
-> Auth confirmed (see §3). Response shape confirmed for event search (§4.3). Ready
-> to build the Phase-A pull. This doc also records the **licensing catch** that
-> makes TM a different kind of source from theatre.info.
+> **Decision (2026-08-04, supersedes 2026-07-28):** Ticketmaster is now a
+> **long-term partner source**, not a throwaway kickstart — we're positioning
+> Scenes as a Discovery API partner rather than dropping TM by launch. The original
+> §2 "store forever" ToS concern is addressed for real, not sidestepped: every
+> event carries `ticketSource`/`ticketUrl` in `packages/db/src/schema.ts`, and
+> `apps/web/components/SourceAttribution.tsx` already renders a visible "Billets
+> via Ticketmaster ↗" badge — which *is* the outbound buy-link — on every show
+> page TM contributed to. That satisfies the attribution + traffic-back
+> requirements the rate-limit-increase compliance gate (§2) checks for, so
+> building further on TM (e.g. an enrichment pass for poster/image coverage) is
+> viable. See the decision log in `scenes-knowledge-base.md`.
 
-> **Decision (2026-07-28):** Ticketmaster is a **throwaway kickstart, not a
-> long-term source.** Its purpose is to seed an initial Paris catalogue so we can
-> **apply for the Awin / France Billet affiliate partnership** — a chicken-and-egg
-> problem, since approval typically needs a live catalogue to point at. We expect
-> to **drop it by launch**, once theatre.info (canonical, open) and the Awin feed
-> (revenue) are in place. This deliberately sidesteps the §2 "store forever" ToS
-> concern: we're bootstrapping, not building a permanent mirror. See the decision
-> log in `scenes-knowledge-base.md`.
+> **Status (2026-08-04):** Key obtained and smoke-tested against live Paris data.
+> Auth confirmed (see §3). Response shape confirmed for event search (§4.3).
+> Ingestion, resolve, and enrichment are live in production: `source_events`
+> stores TM's `event.id` as `sourceRef` (unique per `(source, sourceRef)`), and
+> `apps/worker/src/enrich.ts` fills `events.imageUrl`/`ticketUrl` from it whenever
+> those columns are still empty (never clobbering a curated poster). This doc also
+> records the **licensing catch** that makes TM a different kind of source from
+> theatre.info.
 
 ---
 
@@ -304,34 +311,38 @@ France Billet / Fnac Spectacles**, so a large share of Ticketmaster-FR inventory
 
 ---
 
-## 7. How it fits the worker (if we proceed)
+## 7. How it fits the worker (built)
 
-Same pattern as the other sources: a module
-`apps/worker/src/sources/ticketmaster.ts` exporting
-`ingestTicketmaster(db): Promise<{ upserted: number }>`, wired into
-`runIngestion()` in `apps/worker/src/index.ts` (daily 05:00 Europe/Paris,
-`Promise.allSettled`). Upsert keyed on `(source, sourceRef)` with
-`sourceRef = event.id`. Map: event → `events`, `_embedded.venues[]` → `venues`,
-`dates.start` → `performances`, `event.url` → `events.officialUrl` / a future
-`ticketUrl`. Record provenance for attribution.
+Same pattern as the other sources: `apps/worker/src/sources/ticketmaster.ts`
+exports `ingestTicketmaster(db, budget)`, wired into `stepPull()` in
+`apps/worker/src/index.ts` (daily 05:00 Europe/Paris, `Promise.allSettled`
+alongside theatre.info/OpenAgenda/France Billet). Upsert keyed on
+`(source, sourceRef)` with `sourceRef = event.id`, into `source_events`. The
+`resolveSourceEvents()` step (`apps/worker/src/resolve.ts`) maps that into
+canonical `events`/`venues`/`performances`, and `enrichResolvedSourceEvents()`
+(`apps/worker/src/enrich.ts`) fills `events.imageUrl`/`ticketUrl` — and their
+`imageSource`/`ticketSource` provenance columns — only where those fields are
+still empty, never overwriting curated data.
 
-But **role clarity first** (see §1/§2): most likely Ticketmaster is a *ticketing
-enrichment* on events already sourced from theatre.info — supplying the buy link
-and freshness signal — rather than a primary catalogue we mirror. Settle that with
-Théo before building.
+Role, per the 2026-08-04 decision above: Ticketmaster is a *ticketing/poster
+enrichment* layered on events primarily sourced from theatre.info, not the
+catalogue of record — consistent with §1's original recommendation, now
+confirmed rather than pending.
 
 ---
 
 ## 8. Open decisions for Théo
 
-- **Licence/ToS fit:** does Ticketmaster's ToS permit aggregating into our own
-  catalogue, or must it be link-out/display-time only? (Blocking.)
-- **Affiliate path:** does the Ticketmaster `event.url` earn commission, or is the
-  **France Billet Awin** feed the real revenue path for the same Paris events? If
-  the latter, Ticketmaster Discovery may be redundant.
-- **Source role:** canonical catalogue vs. ticketing/discovery enrichment on top
-  of theatre.info.
-- **"Cultural" scope:** Arts & Theatre only, or broader (Music, Family)?
+- **Licence/ToS fit:** ✅ resolved 2026-08-04 — attribution + traffic-back is
+  live (`SourceAttribution.tsx`), so aggregating into our own catalogue with a
+  visible buy-link is the compliant path we've taken.
+- **Affiliate path:** does the Ticketmaster `event.url` earn commission, or is
+  the **France Billet Awin** feed the real revenue path for the same Paris
+  events? Still open — worth confirming with the partner conversation.
+- **Source role:** ✅ resolved — ticketing/discovery enrichment on top of
+  theatre.info, not a canonical catalogue.
+- **"Cultural" scope:** Arts & Theatre only, or broader (Music, Family)? Still
+  open.
 
 ## Sources
 
